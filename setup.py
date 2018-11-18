@@ -15,7 +15,9 @@ setup(
     author='Ethan Brooks',
     author_email='ethanabrooks@gmail.com',
     packages=find_packages(),
-    include_package_data=True,
+    package_data={
+        'environments': ['**/*.xml', '**/*.mjcf', 'hsr_meshes/meshes/*/*.stl'],
+    },
     entry_points=dict(console_scripts=[
         'gym-env=scripts.gym_env:cli',
         'frozen-lake=scripts.frozen_lake:cli',
