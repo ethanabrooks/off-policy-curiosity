@@ -132,17 +132,18 @@ def unwrap_env(env: gym.Env, condition: Callable[[gym.Env], bool]):
     return env
 
 
-def concat_spaces(spaces: Iterable[gym.Space], axis=None):
+def concat_spaces(spaces: Iterable[gym.Space], axis: int):
     def get_high_or_low(space: gym.Space, high: bool):
-        if isinstance(space, Box):
+        if isinstance(space, gym.spaces.Box):
             return space.high if high else space.low
-        if isinstance(space, Dict):
+        if isinstance(space, gym.spaces.Dict):
             subspaces = space.spaces.values()
         elif isinstance(space, gym.spaces.Tuple):
             subspaces = space.spaces
         else:
             raise NotImplementedError
-        return concat_spaces(subspaces, high=high)
+        concatted = concat_spaces(subspaces, axis=axis)
+        return concatted.high if high else concatted.low
 
     def concat(high: bool):
         subspaces = [get_high_or_low(space, high=high) for space in spaces]
