@@ -1,6 +1,6 @@
 # stdlib
 from collections import namedtuple
-from typing import Any, Callable, Sequence, Union
+from typing import Any, Callable, Sequence, Union, Iterable
 
 # third party
 import gym
@@ -132,6 +132,42 @@ def unwrap_env(env: gym.Env, condition: Callable[[gym.Env], bool]):
             raise RuntimeError(f"env {env} has no children that meet condition.")
     return env
 
+def concat_spaces(spaces: Iterable[gym.Space], axis=None):
+    def get_high_or_low(space: gym.Space, high: bool):
+        if isinstance(space, Box):
+            return space.high if high else space.low
+        if isinstance(space, Dict):
+            subspaces = space.spaces.values()
+        elif isinstance(space, Tuple):
+            subspaces = space.spaces
+        else:
+            raise NotImplementedError
+        return concat_spaces(subspaces, high=high)
+
+    def concat(high: bool):
+        subspaces = [get_high_or_low(space, high=high) for space in spaces]
+        return np.concatenate(subspaces, axis=axis)
+
+    return Box(high=concat(high=True), low=concat(high=False))
+
+def space_shape(space: gym.Space):
+    if isinstance(space, Box):
+        return space.low.shape
+    if isinstance(space, Dict):
+        return {k: space_shape(v) for k, v in space.spaces.items()}
+    if isinstance(space, Tuple):
+        return tuple(space_shape(s) for s in space.spaces)
+    raise NotImplementedError
+
+def space_rank(space: gym.Space):
+    def _rank(shape):
+        if isinstance(shape, np.array):
+            return len(shape)
+        if isinstance(shape, dict):
+            return {k: len(v) for k, v in shape.items()}
+        if isinstance(shape, tuple):
+            return tuple(len(s) for s in shape)
+    return _rank(space_shape(space))
 
 def create_sess(debug=False):
     config = tf.ConfigProto(allow_soft_placement=True)

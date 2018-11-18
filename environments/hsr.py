@@ -287,13 +287,7 @@ class HSREnv:
                 for adrs in self._block_qposadrs:
                     qpos[adrs] = self._block_space.sample()
 
-        # set new goal
-        if self._min_lift_height:
-            self.set_goal(self.block_pos() + np.array([0, 0, self._min_lift_height]))
-        elif self.random_goals or self.goal is None:
-            self.set_goal(self.goal_space.sample())
-        else:
-            self.set_goal(self.goal)
+        self.set_goal(self.new_goal())
 
         if self._time_steps > 0:
             self._episode += 1
@@ -307,6 +301,14 @@ class HSREnv:
             self._video_recorder = self.reset_recorder(record_path)
 
         return self._get_obs()
+
+    def new_goal(self):
+        if self._min_lift_height:
+            return self.block_pos() + np.array([0, 0, self._min_lift_height])
+        elif self.random_goals or self.goal is None:
+            return self.goal_space.sample()
+        else:
+            return self.goal
 
     def achieved_goal(self):
         return self.block_pos()
