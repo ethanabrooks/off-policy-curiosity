@@ -6,7 +6,6 @@ from typing import Any, Callable, Sequence, Union, Iterable
 import gym
 import numpy as np
 import tensorflow as tf
-from gym import spaces
 from tensorflow.python import debug as tf_debug
 
 Shape = Union[int, Sequence[int]]
@@ -132,13 +131,14 @@ def unwrap_env(env: gym.Env, condition: Callable[[gym.Env], bool]):
             raise RuntimeError(f"env {env} has no children that meet condition.")
     return env
 
+
 def concat_spaces(spaces: Iterable[gym.Space], axis=None):
     def get_high_or_low(space: gym.Space, high: bool):
         if isinstance(space, Box):
             return space.high if high else space.low
         if isinstance(space, Dict):
             subspaces = space.spaces.values()
-        elif isinstance(space, Tuple):
+        elif isinstance(space, gym.spaces.Tuple):
             subspaces = space.spaces
         else:
             raise NotImplementedError
@@ -148,26 +148,34 @@ def concat_spaces(spaces: Iterable[gym.Space], axis=None):
         subspaces = [get_high_or_low(space, high=high) for space in spaces]
         return np.concatenate(subspaces, axis=axis)
 
-    return Box(high=concat(high=True), low=concat(high=False))
+    return gym.spaces.Box(high=concat(high=True), low=concat(high=False))
+
 
 def space_shape(space: gym.Space):
-    if isinstance(space, Box):
+    if isinstance(space, gym.spaces.Box):
         return space.low.shape
-    if isinstance(space, Dict):
+    if isinstance(space, gym.spaces.Dict):
         return {k: space_shape(v) for k, v in space.spaces.items()}
-    if isinstance(space, Tuple):
+    if isinstance(space, gym.spaces.Tuple):
         return tuple(space_shape(s) for s in space.spaces)
     raise NotImplementedError
 
+
 def space_rank(space: gym.Space):
     def _rank(shape):
-        if isinstance(shape, np.array):
+        if len(shape) == 0:
+            return 0
+        if isinstance(shape[0], int):
+            for n in shape:
+                assert isinstance(n, int)
             return len(shape)
         if isinstance(shape, dict):
-            return {k: len(v) for k, v in shape.items()}
+            return {k: _rank(v) for k, v in shape.items()}
         if isinstance(shape, tuple):
-            return tuple(len(s) for s in shape)
+            return tuple(_rank(s) for s in shape)
+
     return _rank(space_shape(space))
+
 
 def create_sess(debug=False):
     config = tf.ConfigProto(allow_soft_placement=True)
@@ -245,10 +253,10 @@ def parse_double(ctx, param, string):
 
 
 def space_to_size(space: gym.Space):
-    if isinstance(space, spaces.Discrete):
+    if isinstance(space, gym.spaces.Discrete):
         return space.n
-    elif isinstance(space, (spaces.Dict, spaces.Tuple)):
-        if isinstance(space, spaces.Dict):
+    elif isinstance(space, (gym.spaces.Dict, gym.spaces.Tuple)):
+        if isinstance(space, gym.spaces.Dict):
             _spaces = list(space.spaces.values())
         else:
             _spaces = list(space.spaces)
