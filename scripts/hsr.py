@@ -19,8 +19,7 @@ import tensorflow as tf
 
 # first party
 from environments.hindsight_wrapper import HSRHindsightWrapper, MBHSRHindsightWrapper
-from environments.hsr import HSREnv, MultiBlockHSREnv, MoveGripperEnv
-from sac.agent import ModelType
+from environments.hsr import HSREnv, MultiBlockHSREnv, MoveGripperEnv, get_xml_filepath
 from sac.networks import MlpAgent
 from sac.train import HindsightTrainer, Trainer
 from sac.unsupervised_trainer import UnsupervisedTrainer
@@ -110,8 +109,7 @@ def env_wrapper(func):
     @wraps(func)
     def _wrapper(set_xml, use_dof, n_blocks, goal_space, xml_file, geofence,
                  env_args: dict, **kwargs):
-        xml_filepath = Path(
-            Path(__file__).parent.parent, 'environments', 'models', xml_file).absolute()
+        xml_filepath = get_xml_filepath(xml_file)
         if set_xml is None:
             set_xml = []
         site_size = ' '.join([str(geofence)] * 3)
@@ -125,7 +123,7 @@ def env_wrapper(func):
                 xml_filepath=xml_filepath) as temp_path:
             env_args.update(
                 geofence=geofence,
-                xml_filepath=temp_path,
+                xml_file=temp_path,
                 goal_space=goal_space,
             )
 
@@ -341,7 +339,7 @@ def add_env_args(parser):
 
 
 def add_wrapper_args(parser):
-    parser.add_argument('--xml-file', type=Path, default='world.xml')
+    parser.add_argument('--xml-file', type=Path, default='models/world.xml')
     parser.add_argument('--set-xml', type=put_in_xml_setter, action='append', nargs='*')
     parser.add_argument('--use-dof', type=str, action='append', default=[])
     parser.add_argument('--geofence', type=float, required=True)

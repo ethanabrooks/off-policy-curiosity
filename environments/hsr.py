@@ -16,7 +16,7 @@ import mujoco
 from mujoco import MujocoError, ObjType
 
 
-def get_xml_filepath(xml_filename=Path('world.xml')):
+def get_xml_filepath(xml_filename=Path('models/world.xml')):
     return Path(Path(__file__).parent, xml_filename).absolute()
 
 
