@@ -16,9 +16,13 @@ import mujoco
 from mujoco import MujocoError, ObjType
 
 
+def get_xml_filepath(xml_filename=Path('world.xml')):
+    return Path(Path(__file__).parent, xml_filename).absolute()
+
+
 class HSREnv:
     def __init__(self,
-                 xml_filepath: Path,
+                 xml_file: Path,
                  steps_per_action: int,
                  geofence: float,
                  goal_space: spaces.Box,
@@ -36,8 +40,8 @@ class HSREnv:
                  no_random_reset: bool = False,
                  random_goals: bool = True):
         self.random_goals = random_goals
-        if not xml_filepath.is_absolute():
-            xml_filepath = Path(Path(__file__).parent, xml_filepath)
+        if not xml_file.is_absolute():
+            xml_file = get_xml_filepath(xml_file)
 
         self.no_random_reset = no_random_reset
         self.geofence = geofence
@@ -70,7 +74,7 @@ class HSREnv:
             image_dims = image_dims or []
         self._image_dimensions = image_dims
 
-        self.sim = mujoco.Sim(str(xml_filepath), *image_dims, n_substeps=1)
+        self.sim = mujoco.Sim(str(xml_file), *image_dims, n_substeps=1)
 
         # initial values
         self.initial_qpos = self.sim.qpos.ravel().copy()
