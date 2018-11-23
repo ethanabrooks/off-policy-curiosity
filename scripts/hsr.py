@@ -77,7 +77,7 @@ def cast_to_int(arg: str):
 
 
 HINDSIGHT_ENVS = {
-    HSREnv:           HSRHindsightWrapper,
+    HSREnv: HSRHindsightWrapper,
     MultiBlockHSREnv: MBHSRHindsightWrapper,
 }
 
@@ -124,7 +124,9 @@ def env_wrapper(func):
                 goal_space=goal_space,
                 xml_filepath=xml_filepath) as temp_path:
             env_args.update(
-                geofence=geofence, xml_filepath=temp_path, goal_space=goal_space,
+                geofence=geofence,
+                xml_filepath=temp_path,
+                goal_space=goal_space,
             )
 
             return func(env_args=env_args, **kwargs)
@@ -171,7 +173,7 @@ def mutate_xml(changes: List[XMLSetter], dofs: List[str], goal_space: Box, n_blo
                         rgba=rgba[i],
                         condim='6',
                         solimp="0.99 0.99 "
-                               "0.01",
+                        "0.01",
                         solref='0.01 1'))
                 ET.SubElement(body, 'freejoint', attrib=dict(name=f'block{i}joint'))
 
@@ -239,7 +241,9 @@ def main(
         train_args,
 ):
     env_class = env
-    unsupervised = any([episodes_per_goal, ])
+    unsupervised = any([
+        episodes_per_goal,
+    ])
     env = TimeLimit(max_episode_steps=max_steps, env=env_class(**env_args))
 
     trainer_args['base_agent'] = MlpAgent
@@ -252,8 +256,7 @@ def main(
         )
     elif hindsight_args:
         trainer = HindsightTrainer(
-            env=HINDSIGHT_ENVS[env_class](env=env, **hindsight_args),
-            **trainer_args)
+            env=HINDSIGHT_ENVS[env_class](env=env, **hindsight_args), **trainer_args)
     else:
         trainer = Trainer(env=env, render=False, **trainer_args)
     trainer.train(**train_args)
@@ -339,8 +342,7 @@ def add_env_args(parser):
 
 def add_wrapper_args(parser):
     parser.add_argument('--xml-file', type=Path, default='world.xml')
-    parser.add_argument('--set-xml', type=put_in_xml_setter, action='append',
-                        nargs='*')
+    parser.add_argument('--set-xml', type=put_in_xml_setter, action='append', nargs='*')
     parser.add_argument('--use-dof', type=str, action='append', default=[])
     parser.add_argument('--geofence', type=float, required=True)
     parser.add_argument('--n-blocks', type=int, required=True)
