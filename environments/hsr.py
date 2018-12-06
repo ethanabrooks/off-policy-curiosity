@@ -328,7 +328,7 @@ class HSREnv:
         record_path.mkdir(parents=True, exist_ok=True)
         print(f'Recording video to {record_path}.mp4')
         video_recorder = VideoRecorder(
-            env=self,
+                env=self,
             base_path=str(record_path),
             metadata={'episode': self._episode},
             enabled=True,
