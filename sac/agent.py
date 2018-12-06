@@ -156,16 +156,21 @@ class AbstractAgent:
             if embed:
                 with tf.variable_scope('embed'):
                     lr = embed_args.pop('lr') or learning_rate
-                    with tf.variable_scope('o'):
-                        O = tf.concat([self.O1, self.O2], axis=0)
-                        output = mlp(inputs=O, **embed_args)
-                        o1_embed, o2_embed, = tf.split(output, 2, axis=0)
-                    with tf.variable_scope('a'):
-                        a_embed = mlp(inputs=self.A, **embed_args)
+                    if embed_args['n_layers'] == 0:
+                        o1_embed = tf.Variable(np.zeros(embed_args['layer_size']), 'o1_embed')
+                        o2_embed = tf.Variable(np.zeros(embed_args['layer_size']), 'o1_embed')
+                        a_embed = tf.Variable(np.zeros(embed_args['layer_size']), 'o1_embed')
+                    else:
+                        with tf.variable_scope('o'):
+                            O = tf.concat([self.O1, self.O2], axis=0)
+                            output = mlp(inputs=O, **embed_args)
+                            o1_embed, o2_embed, = tf.split(output, 2, axis=0)
+                        with tf.variable_scope('a'):
+                            a_embed = mlp(inputs=self.A, **embed_args)
 
                     norm = tf.maximum(tf.norm(a_embed, axis=1, keepdims=True), 1e-6)
                     self.embed_loss = .5 * tf.reduce_mean(
-                        (o1_embed + a_embed / norm - o2_embed)**2)
+                        (o1_embed + a_embed / norm - o2_embed) ** 2)
 
                 embed_vars = get_variables('embed')
                 self.train_embed, self.embed_grad = train_op(self.embed_loss, embed_vars,
