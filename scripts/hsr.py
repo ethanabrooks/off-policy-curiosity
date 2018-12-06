@@ -238,6 +238,7 @@ def main(
         train_args,
         embed_args,
 ):
+    embed_args = {k.replace('embed_', ''): v for k, v in embed_args.items()}
     env_class = env
     env = TimeLimit(max_episode_steps=max_steps, env=env_class(**env_args))
 
@@ -307,15 +308,14 @@ def add_trainer_args(parser):
 
 
 def add_embed_args(parser):
-    parser.add_argument('--n-embed-layers', dest='n_layers', type=int)
-    parser.add_argument('--embed-size', dest='layer_size', type=int)
+    parser.add_argument('--embed-n-layers', type=int)
+    parser.add_argument('--embed-layer-size', type=int)
     parser.add_argument(
         '--embed-activation',
-        dest='activation',
         type=parse_activation,
         default=tf.nn.relu,
         choices=ACTIVATIONS.values())
-    parser.add_argument('--embed-learning-rate', dest='lr', type=float)
+    parser.add_argument('--embed-learning-rate', type=float)
 
 
 def add_env_args(parser):
@@ -353,14 +353,12 @@ def cli():
         type=lambda k: ENVIRONMENTS[k],
         default=HSREnv)
     parser.add_argument('--max-steps', type=int, required=True)
-
     add_wrapper_args(parser=parser.add_argument_group('wrapper_args'))
     add_env_args(parser=parser.add_argument_group('env_args'))
     add_trainer_args(parser=parser.add_argument_group('trainer_args'))
     add_train_args(parser=parser.add_argument_group('train_args'))
     add_hindsight_args(parser=parser.add_argument_group('hindsight_args'))
     add_embed_args(parser=parser.add_argument_group('embed_args'))
-
     main(**(parse_groups(parser)))
 
 

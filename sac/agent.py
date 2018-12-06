@@ -156,7 +156,7 @@ class AbstractAgent:
             # embeddings
             if embed:
                 with tf.variable_scope('embed'):
-                    lr = embed_args.pop('lr') or learning_rate
+                    lr = embed_args.pop('learning_rate') or learning_rate
                     if embed_args['n_layers'] == 0:
                         o1_embed = tf.Variable(
                             np.zeros(embed_args['layer_size']), 'o1_embed')
