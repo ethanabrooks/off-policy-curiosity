@@ -81,14 +81,6 @@ class Trainer:
                 **kwargs),
             train=None)
 
-        # self.build_agent(
-        # sess=self.sess,
-        # batch_size=batch_size,
-        # seq_len=seq_len,
-        # reuse=True,
-        # action_space=action_space,
-        # observation_space=observation_space,
-        # **kwargs))
         self.seq_len = self.agents.act.seq_len
 
         self.global_step = tf.Variable(0, name='global_step', trainable=False)

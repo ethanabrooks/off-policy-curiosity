@@ -9,6 +9,7 @@ import numpy as np
 import tensorflow as tf
 
 # first party
+from sac.networks import mlp
 from sac.utils import ArrayLike, Step
 
 NetworkOutput = namedtuple('NetworkOutput', 'output state')
@@ -37,13 +38,9 @@ class AbstractAgent:
                  learning_rate: float,
                  grad_clip: float,
                  device_num: int = 1,
-                 goal_activation: Callable = None,
-                 goal_n_layers: int = None,
-                 goal_layer_size: int = None,
+                 embed_kwargs: dict = None,
                  reuse: bool = False,
-                 scope: str = 'agent',
-                 goal_learning_rate: float = None,
-                 size_goal=3) -> None:
+                 scope: str = 'agent', ) -> None:
 
         self.default_train_values = [
             'entropy',
@@ -59,17 +56,19 @@ class AbstractAgent:
             'train_Q',
             'train_pi',
         ]
+        embed = bool(embed_kwargs)
+        if embed:
+            self.default_train_values.extend([
+                'embed_loss',
+                'embed_grad',
+                'train_grad',
+            ])
         self.reward_scale = reward_scale
         self.activation = activation
         self.n_layers = n_layers
         self.layer_size = layer_size
         self.initial_state = None
         self.sess = sess
-
-        self.goal_n_layers = goal_n_layers or n_layers
-        self.goal_layer_size = goal_layer_size or layer_size
-        self.goal_activation = goal_activation or activation
-        goal_learning_rate = goal_learning_rate or learning_rate
 
         with tf.device('/gpu:' + str(device_num)), tf.variable_scope(scope, reuse=reuse):
             self.global_step = tf.Variable(0, name='global_step')
@@ -152,43 +151,21 @@ class AbstractAgent:
             self.train_Q, self.Q_grad = train_op(loss=Q_loss, var_list=theta)
             self.train_pi, self.pi_grad = train_op(loss=pi_loss, var_list=phi)
 
-            # placeholders
-            self.old_goal = tf.placeholder(tf.float32, [size_goal], name='old_goal')
-            self.old_initial_obs = tf.placeholder(tf.float32, o_shape, name='old_initial_obs')
-            self.new_initial_obs = tf.placeholder(tf.float32, o_shape, name='new_initial_obs')
-            self.goal_reward = tf.placeholder(tf.float32, (), name='goal_reward')
-            old_goal = tf.expand_dims(self.old_goal, axis=0)
-            old_initial_obs = tf.expand_dims(self.old_initial_obs, axis=0)
-            new_initial_obs = tf.expand_dims(self.new_initial_obs, axis=0)
+            # embeddings
+            if embed:
+                with tf.variable_scope('embed'):
+                    with tf.variable_scope('o'):
+                        O = tf.concat([self.O1, self.O2], axis=0)
+                        output = mlp(inputs=O, **embed_kwargs)
+                        o1_embed, o2_embed, = tf.split(output, 2, axis=0)
+                    with tf.variable_scope('a'):
+                        a_embed = mlp(inputs=self.A, **embed_kwargs)
 
-            def produce_goal_params(initial_obs, _reuse):
-                with tf.variable_scope('goal', reuse=_reuse):
-                    return self.produce_policy_parameters(size_goal,
-                                                          self.goal_network(initial_obs))
+                    embed_loss = .5 * (o1_embed + a_embed / tf.norm(a_embed, axis=1) - o2_embed) ** 2
 
-            # train
-            old_params = produce_goal_params(old_initial_obs, _reuse=False)
-            goal_log_prob = self.policy_parameters_to_log_prob(old_goal, old_params)
-            optimizer = tf.train.AdamOptimizer(learning_rate=goal_learning_rate)
-            # with tf.variable_scope('baseline'):
-            # baseline = tf.squeeze(tf.layers.dense(old_initial_obs, 1))
-            # self.baseline_loss = tf.reduce_mean(.5 * tf.square(baseline - self.goal_reward))
-
-            self.goal_loss = tf.reduce_mean(
-                -goal_log_prob * tf.stop_gradient(self.goal_reward))
-
-            goal_variables = get_variables('goal')
-            self.goal_grad, _ = zip(
-                *optimizer.compute_gradients(self.goal_loss, var_list=goal_variables))
-
-            self.train_goal = tf.group(
-                optimizer.minimize(self.goal_loss, var_list=goal_variables), )
-            # optimizer.minimize(self.baseline_loss))
-
-            # infer
-            new_params = produce_goal_params(new_initial_obs, _reuse=True)
-            new_goal = self.policy_parameters_to_sample(new_params)
-            self.new_goal = tf.squeeze(new_goal, axis=0)
+                embed_vars = get_variables('embed')
+                lr = embed_kwargs.get('embed_learning_rate', None)
+                self.train_embed, self.embed_grad = train_op(embed_loss, embed_vars, lr)
 
             soft_update_xi_bar_ops = [
                 tf.assign(xbar, tau * x + (1 - tau) * xbar)

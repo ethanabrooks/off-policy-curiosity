@@ -306,9 +306,9 @@ def add_trainer_args(parser):
         type=parse_activation,
         default=tf.nn.relu,
         choices=ACTIVATIONS.values())
-    parser.add_argument('--goal-n-layers', type=int)
-    parser.add_argument('--goal-layer-size', type=int)
-    parser.add_argument('--goal-learning-rate', type=float)
+    parser.add_argument('--embed-n-layers', type=int)
+    parser.add_argument('--embed-layer-size', type=int)
+    parser.add_argument('--embed-learning-rate', type=float)
     parser.add_argument('--buffer-size', type=cast_to_int, required=True)
     parser.add_argument('--n-train-steps', type=int, required=True)
     parser.add_argument('--batch-size', type=int, required=True)
@@ -354,7 +354,6 @@ def cli():
         choices=ENVIRONMENTS.values(),
         type=lambda k: ENVIRONMENTS[k],
         default=HSREnv)
-    parser.add_argument('--episodes-per-goal', type=int, default=None)
     parser.add_argument('--max-steps', type=int, required=True)
 
     add_wrapper_args(parser=parser.add_argument_group('wrapper_args'))
