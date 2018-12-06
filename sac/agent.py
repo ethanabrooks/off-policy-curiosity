@@ -9,8 +9,7 @@ import numpy as np
 import tensorflow as tf
 
 # first party
-from sac.networks import mlp
-from sac.utils import ArrayLike, Step
+from sac.utils import ArrayLike, Step, mlp
 
 NetworkOutput = namedtuple('NetworkOutput', 'output state')
 
@@ -26,21 +25,23 @@ class ModelType(enum.Enum):
 
 
 class AbstractAgent:
-    def __init__(self,
-                 sess: tf.Session,
-                 o_shape: Iterable,
-                 a_shape: Sequence,
-                 reward_scale: float,
-                 entropy_scale: float,
-                 activation: Callable,
-                 n_layers: int,
-                 layer_size: int,
-                 learning_rate: float,
-                 grad_clip: float,
-                 device_num: int = 1,
-                 embed_kwargs: dict = None,
-                 reuse: bool = False,
-                 scope: str = 'agent', ) -> None:
+    def __init__(
+            self,
+            sess: tf.Session,
+            o_shape: Iterable,
+            a_shape: Sequence,
+            reward_scale: float,
+            entropy_scale: float,
+            activation: Callable,
+            n_layers: int,
+            layer_size: int,
+            learning_rate: float,
+            grad_clip: float,
+            device_num: int = 1,
+            embed_args: dict = None,
+            reuse: bool = False,
+            scope: str = 'agent',
+    ) -> None:
 
         self.default_train_values = [
             'entropy',
@@ -56,12 +57,12 @@ class AbstractAgent:
             'train_Q',
             'train_pi',
         ]
-        embed = bool(embed_kwargs)
+        embed = bool(embed_args)
         if embed:
             self.default_train_values.extend([
                 'embed_loss',
                 'embed_grad',
-                'train_grad',
+                'train_embed',
             ])
         self.reward_scale = reward_scale
         self.activation = activation
@@ -154,18 +155,19 @@ class AbstractAgent:
             # embeddings
             if embed:
                 with tf.variable_scope('embed'):
+                    lr = embed_args.pop('lr') or learning_rate
                     with tf.variable_scope('o'):
                         O = tf.concat([self.O1, self.O2], axis=0)
-                        output = mlp(inputs=O, **embed_kwargs)
+                        output = mlp(inputs=O, **embed_args)
                         o1_embed, o2_embed, = tf.split(output, 2, axis=0)
                     with tf.variable_scope('a'):
-                        a_embed = mlp(inputs=self.A, **embed_kwargs)
+                        a_embed = mlp(inputs=self.A, **embed_args)
 
-                    embed_loss = .5 * (o1_embed + a_embed / tf.norm(a_embed, axis=1) - o2_embed) ** 2
+                    self.embed_loss = .5 * (
+                        o1_embed + a_embed / tf.norm(a_embed, axis=1, keepdims=True) - o2_embed)**2
 
                 embed_vars = get_variables('embed')
-                lr = embed_kwargs.get('embed_learning_rate', None)
-                self.train_embed, self.embed_grad = train_op(embed_loss, embed_vars, lr)
+                self.train_embed, self.embed_grad = train_op(self.embed_loss, embed_vars, lr)
 
             soft_update_xi_bar_ops = [
                 tf.assign(xbar, tau * x + (1 - tau) * xbar)
@@ -240,10 +242,6 @@ class AbstractAgent:
 
     def _print(self, tensor, name: str):
         return tf.Print(tensor, [tensor], message=name, summarize=1e5)
-
-    @abstractmethod
-    def goal_network(self, inputs: tf.Tensor) -> tf.Tensor:
-        pass
 
     @abstractmethod
     def network(self, inputs: tf.Tensor) -> NetworkOutput:

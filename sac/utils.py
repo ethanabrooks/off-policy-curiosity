@@ -266,3 +266,9 @@ def space_to_size(space: gym.Space):
         return sum(space_to_size(s) for s in _spaces)
     else:
         return space.shape[0]
+
+
+def mlp(inputs, layer_size, n_layers, activation):
+    for i in range(n_layers):
+        inputs = tf.layers.dense(inputs, layer_size, activation, name='fc' + str(i))
+    return inputs

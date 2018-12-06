@@ -231,30 +231,24 @@ def mutate_xml(changes: List[XMLSetter], dofs: List[str], goal_space: Box, n_blo
 @env_wrapper
 def main(
         env,
-        episodes_per_goal,
         max_steps,
         env_args,
         hindsight_args,
         trainer_args,
         train_args,
+        embed_args,
 ):
     env_class = env
-    unsupervised = any([
-        episodes_per_goal,
-    ])
     env = TimeLimit(max_episode_steps=max_steps, env=env_class(**env_args))
 
     trainer_args['base_agent'] = MlpAgent
 
-    if unsupervised:
-        trainer = UnsupervisedTrainer(
-            env=env,
-            episodes_per_goal=episodes_per_goal,
-            **trainer_args,
-        )
-    elif hindsight_args:
+    if hindsight_args:
         trainer = HindsightTrainer(
-            env=HINDSIGHT_ENVS[env_class](env=env), **hindsight_args, **trainer_args)
+            env=HINDSIGHT_ENVS[env_class](env=env),
+            embed_args=embed_args,
+            **hindsight_args,
+            **trainer_args)
     else:
         trainer = Trainer(env=env, render=False, **trainer_args)
     trainer.train(**train_args)
@@ -301,14 +295,6 @@ def add_trainer_args(parser):
         choices=ACTIVATIONS.values())
     parser.add_argument('--n-layers', type=int, required=True)
     parser.add_argument('--layer-size', type=int, required=True)
-    parser.add_argument(
-        '--goal-activation',
-        type=parse_activation,
-        default=tf.nn.relu,
-        choices=ACTIVATIONS.values())
-    parser.add_argument('--embed-n-layers', type=int)
-    parser.add_argument('--embed-layer-size', type=int)
-    parser.add_argument('--embed-learning-rate', type=float)
     parser.add_argument('--buffer-size', type=cast_to_int, required=True)
     parser.add_argument('--n-train-steps', type=int, required=True)
     parser.add_argument('--batch-size', type=int, required=True)
@@ -318,6 +304,18 @@ def add_trainer_args(parser):
     parser.add_argument('--learning-rate', type=float, required=True)
     parser.add_argument('--grad-clip', type=float, required=True)
     parser.add_argument('--debug', action='store_true')
+
+
+def add_embed_args(parser):
+    parser.add_argument('--n-embed-layers', dest='n_layers', type=int)
+    parser.add_argument('--embed-size', dest='layer_size', type=int)
+    parser.add_argument(
+        '--embed-activation',
+        dest='activation',
+        type=parse_activation,
+        default=tf.nn.relu,
+        choices=ACTIVATIONS.values())
+    parser.add_argument('--embed-learning-rate', dest='lr', type=float)
 
 
 def add_env_args(parser):
@@ -361,6 +359,7 @@ def cli():
     add_trainer_args(parser=parser.add_argument_group('trainer_args'))
     add_train_args(parser=parser.add_argument_group('train_args'))
     add_hindsight_args(parser=parser.add_argument_group('hindsight_args'))
+    add_embed_args(parser=parser.add_argument_group('embed_args'))
 
     main(**(parse_groups(parser)))
 

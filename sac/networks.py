@@ -8,13 +8,7 @@ from tensorflow.contrib.rnn import BasicLSTMCell, LSTMStateTuple
 
 # first party
 from sac.agent import AbstractAgent, NetworkOutput
-from sac.utils import ArrayLike, Step
-
-
-def mlp(inputs, layer_size, n_layers, activation):
-    for i in range(n_layers):
-        inputs = tf.layers.dense(inputs, layer_size, activation, name='fc' + str(i))
-    return inputs
+from sac.utils import ArrayLike, Step, mlp
 
 
 class MlpAgent(AbstractAgent):
@@ -30,13 +24,6 @@ class MlpAgent(AbstractAgent):
                 n_layers=self.n_layers,
                 activation=self.activation),
             state=None)
-
-    def goal_network(self, inputs: tf.Tensor):
-        return mlp(
-            inputs=inputs,
-            layer_size=self.goal_layer_size,
-            n_layers=self.goal_n_layers,
-            activation=self.goal_activation)
 
 
 class SACXAgent(AbstractAgent):
