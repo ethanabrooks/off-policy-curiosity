@@ -355,7 +355,7 @@ def cli():
         choices=ENVIRONMENTS.values(),
         type=lambda k: ENVIRONMENTS[k],
         default=HSREnv)
-    parser.add_argument('--episodes-per-goal', type=int, default=1)
+    parser.add_argument('--episodes-per-goal', type=int, default=None)
     parser.add_argument('--max-steps', type=int, required=True)
 
     add_wrapper_args(parser=parser.add_argument_group('wrapper_args'))
