@@ -254,7 +254,7 @@ def main(
         )
     elif hindsight_args:
         trainer = HindsightTrainer(
-            env=HINDSIGHT_ENVS[env_class](env=env, **hindsight_args), **trainer_args)
+            env=HINDSIGHT_ENVS[env_class](env=env), **hindsight_args, **trainer_args)
     else:
         trainer = Trainer(env=env, render=False, **trainer_args)
     trainer.train(**train_args)
@@ -290,7 +290,6 @@ def add_train_args(parser):
 
 def add_hindsight_args(parser):
     parser.add_argument('--n-goals', type=int)
-    parser.add_argument('--hindsight-geofence', type=float)
 
 
 def add_trainer_args(parser):

@@ -118,10 +118,10 @@ class MountaincarHindsightWrapper(HindsightWrapper):
 
 
 class HSRHindsightWrapper(HindsightWrapper):
-    def __init__(self, env, geofence):
+    def __init__(self, env):
         super().__init__(env)
         self.hsr_env = unwrap_env(env, lambda e: isinstance(e, HSREnv))
-        self._geofence = geofence
+        self._geofence = self.hsr_env.geofence
         hsr_spaces = hsr.Observation(*self.hsr_env.observation_space.spaces)
         self.observation_space = spaces.Tuple(
             Observation(
@@ -152,7 +152,7 @@ class HSRHindsightWrapper(HindsightWrapper):
     @property
     def goal_space(self):
         low = self.hsr_env.goal_space.low.copy()
-        low[2] = self.hsr_env.initial_block_pos[2]
+        low[2] = self.hsr_env.initial_block_pos[0][2]
         return Box(low=low, high=self.hsr_env.goal_space.high, dtype=np.float32)
 
 
