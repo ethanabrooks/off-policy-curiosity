@@ -163,11 +163,13 @@ class AbstractAgent:
                     with tf.variable_scope('a'):
                         a_embed = mlp(inputs=self.A, **embed_args)
 
-                    self.embed_loss = .5 * (
-                        o1_embed + a_embed / tf.norm(a_embed, axis=1, keepdims=True) - o2_embed)**2
+                    self.embed_loss = .5 * tf.reduce_mean(
+                        (o1_embed + a_embed / tf.norm(a_embed, axis=1, keepdims=True) -
+                         o2_embed)**2)
 
                 embed_vars = get_variables('embed')
-                self.train_embed, self.embed_grad = train_op(self.embed_loss, embed_vars, lr)
+                self.train_embed, self.embed_grad = train_op(self.embed_loss, embed_vars,
+                                                             lr)
 
             soft_update_xi_bar_ops = [
                 tf.assign(xbar, tau * x + (1 - tau) * xbar)
