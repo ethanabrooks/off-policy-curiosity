@@ -7,6 +7,7 @@ from typing import Callable, Iterable, List, Sequence
 # third party
 import numpy as np
 import tensorflow as tf
+from tensorflow.python.ops.nn_impl import l2_normalize
 
 # first party
 from sac.utils import ArrayLike, Step, mlp
@@ -157,9 +158,12 @@ class AbstractAgent:
                 with tf.variable_scope('embed'):
                     lr = embed_args.pop('lr') or learning_rate
                     if embed_args['n_layers'] == 0:
-                        o1_embed = tf.Variable(np.zeros(embed_args['layer_size']), 'o1_embed')
-                        o2_embed = tf.Variable(np.zeros(embed_args['layer_size']), 'o1_embed')
-                        a_embed = tf.Variable(np.zeros(embed_args['layer_size']), 'o1_embed')
+                        o1_embed = tf.Variable(
+                            np.zeros(embed_args['layer_size']), 'o1_embed')
+                        o2_embed = tf.Variable(
+                            np.zeros(embed_args['layer_size']), 'o1_embed')
+                        a_embed = tf.Variable(
+                            np.zeros(embed_args['layer_size']), 'o1_embed')
                     else:
                         with tf.variable_scope('o'):
                             O = tf.concat([self.O1, self.O2], axis=0)
@@ -168,9 +172,9 @@ class AbstractAgent:
                         with tf.variable_scope('a'):
                             a_embed = mlp(inputs=self.A, **embed_args)
 
-                    norm = tf.maximum(tf.norm(a_embed, axis=1, keepdims=True), 1e-6)
+                    norm_a_embed = tf.expand_dims(l2_normalize(a_embed, axis=1), axis=1)
                     self.embed_loss = .5 * tf.reduce_mean(
-                        (o1_embed + a_embed / norm - o2_embed) ** 2)
+                        (o1_embed + norm_a_embed - o2_embed)**2)
 
                 embed_vars = get_variables('embed')
                 self.train_embed, self.embed_grad = train_op(self.embed_loss, embed_vars,
@@ -181,7 +185,7 @@ class AbstractAgent:
                 for (xbar, x) in zip(xi_bar, xi)
             ]
             self.soft_update_xi_bar = tf.group(*soft_update_xi_bar_ops)
-            self.check = tf.add_check_numerics_ops()
+            # self.check = tf.add_check_numerics_ops()
             self.entropy = tf.reduce_mean(self.entropy_from_params(self.parameters))
             # ensure that xi and xi_bar are the same at initialization
 
