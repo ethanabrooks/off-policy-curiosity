@@ -156,21 +156,13 @@ class AbstractAgent:
             # embeddings
             if embed:
                 with tf.variable_scope('embed'):
-                    lr = embed_args.pop('learning_rate') or learning_rate
-                    if embed_args['n_layers'] == 0:
-                        o1_embed = tf.Variable(
-                            np.zeros(embed_args['layer_size']), 'o1_embed')
-                        o2_embed = tf.Variable(
-                            np.zeros(embed_args['layer_size']), 'o1_embed')
-                        a_embed = tf.Variable(
-                            np.zeros(embed_args['layer_size']), 'o1_embed')
-                    else:
-                        with tf.variable_scope('o'):
-                            O = tf.concat([self.O1, self.O2], axis=0)
-                            output = mlp(inputs=O, **embed_args)
-                            o1_embed, o2_embed, = tf.split(output, 2, axis=0)
-                        with tf.variable_scope('a'):
-                            a_embed = mlp(inputs=self.A, **embed_args)
+                    lr = embed_args.pop('lr') or learning_rate
+                    with tf.variable_scope('o'):
+                        O = tf.concat([self.O1, self.O2], axis=0)
+                        output = mlp(inputs=O, **embed_args)
+                        o1_embed, o2_embed, = tf.split(output, 2, axis=0, name='o_embed')
+                    with tf.variable_scope('a'):
+                        a_embed = mlp(inputs=self.A, **embed_args)
 
                     norm_a_embed = tf.expand_dims(l2_normalize(a_embed, axis=1), axis=1)
                     self.embed_loss = .5 * tf.reduce_mean(
