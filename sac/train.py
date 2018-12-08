@@ -106,17 +106,11 @@ class Trainer:
             saver.restore(self.sess, load_path)
             print("Model restored from", load_path)
         if logdir:
-            with tf.device("/cpu:0"):
-                embedding = tf.Variable(
-                    np.random.random((1, 10)), trainable=False, name='embedding')
-
             tf.global_variables_initializer().run()
 
             saver = tf.train.Saver()
             writer = tf.summary.FileWriter(str(logdir), self.sess.graph)
             config = projector.ProjectorConfig()
-            embed = config.embeddings.add()
-            embed.tensor_name = 'embedding:0'
             projector.visualize_embeddings(writer, config)
 
             saver.save(self.sess, str(logdir.joinpath('model.ckpt')))
