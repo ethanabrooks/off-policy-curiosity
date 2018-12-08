@@ -163,9 +163,9 @@ class AbstractAgent:
                         O = tf.concat([self.O1, self.O2], axis=0)
                         output = mlp(inputs=O, **embed_args)
                         o1_embed, o2_embed, = tf.split(output, 2, axis=0)
-                        o1_embed_var = tf.get_variable(
+                        self.o1_embed_var = tf.get_variable(
                             'o1_embed_var', shape=(batch_size, embed_args['layer_size']))
-                        self.copy_o1_embed = tf.assign(o1_embed_var, o1_embed)
+                        self.copy_o1_embed = tf.assign(self.o1_embed_var, o1_embed)
                     with tf.variable_scope('a'):
                         a_embed = mlp(inputs=self.A, **embed_args)
 
