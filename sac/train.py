@@ -4,12 +4,14 @@ import itertools
 from pathlib import Path
 import time
 from typing import Optional, Tuple
+import os
 
 # third party
 import gym
 from gym import Wrapper, spaces
 import numpy as np
 import tensorflow as tf
+from tensorboard.plugins import projector
 
 # first party
 from gym.wrappers import TimeLimit
@@ -40,7 +42,7 @@ class Trainer:
                  action_space=None,
                  observation_space=None,
                  **kwargs):
-
+        sess = tf.InteractiveSession()
         if seed is not None:
             np.random.seed(seed)
             tf.set_random_seed(seed)
@@ -97,13 +99,28 @@ class Trainer:
               logdir: Path,
               render: bool = False,
               save_threshold: int = None):
+
         saver = tf.train.Saver()
         tb_writer = None
         if load_path:
             saver.restore(self.sess, load_path)
             print("Model restored from", load_path)
         if logdir:
-            tb_writer = tf.summary.FileWriter(logdir=logdir, graph=self.sess.graph)
+            with tf.device("/cpu:0"):
+                embedding = tf.Variable(
+                    np.random.random((9, 10)), trainable=False, name='embedding')
+
+            tf.global_variables_initializer().run()
+
+            saver = tf.train.Saver()
+            writer = tf.summary.FileWriter(str(logdir), self.sess.graph)
+            config = projector.ProjectorConfig()
+            embed = config.embeddings.add()
+            embed.tensor_name = 'embedding:0'
+            projector.visualize_embeddings(writer, config)
+
+            saver.save(self.sess, str(logdir.joinpath('model.ckpt')))
+            exit()
 
         past_returns = deque(maxlen=save_threshold)
         best_average = -np.inf

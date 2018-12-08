@@ -276,7 +276,7 @@ def parse_groups(parser: argparse.ArgumentParser):
 
 
 def add_train_args(parser):
-    parser.add_argument('--logdir', type=str, default=None)
+    parser.add_argument('--logdir', type=Path, default=None)
     parser.add_argument('--load-path', type=str, default=None)
     parser.add_argument('--save-path', type=str, default=None)
     parser.add_argument('--save-threshold', type=int, default=None)

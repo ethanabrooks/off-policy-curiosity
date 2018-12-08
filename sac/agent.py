@@ -72,7 +72,7 @@ class AbstractAgent:
         self.initial_state = None
         self.sess = sess
 
-        with tf.device('/gpu:' + str(device_num)), tf.variable_scope(scope, reuse=reuse):
+        with tf.device('/cpu:0'), tf.variable_scope(scope, reuse=reuse):
             self.global_step = tf.Variable(0, name='global_step')
 
             self.O1 = tf.placeholder(tf.float32, [None] + list(o_shape), name='O1')
