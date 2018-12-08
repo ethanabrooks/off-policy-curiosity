@@ -106,15 +106,9 @@ class Trainer:
             saver.restore(self.sess, load_path)
             print("Model restored from", load_path)
         if logdir:
-            tf.global_variables_initializer().run()
-
-            saver = tf.train.Saver()
             writer = tf.summary.FileWriter(str(logdir), self.sess.graph)
             config = projector.ProjectorConfig()
             projector.visualize_embeddings(writer, config)
-
-            saver.save(self.sess, str(logdir.joinpath('model.ckpt')))
-            exit()
 
         past_returns = deque(maxlen=save_threshold)
         best_average = -np.inf
@@ -138,9 +132,10 @@ class Trainer:
                 else:
                     best_average = new_average
 
-            if save_path and episodes % 10 == 1 and passes_save_threshold:
+            if episodes % 10 == 1 and passes_save_threshold:
+                save_path = saver.save(self.sess, str(logdir.joinpath('model.ckpt')))
                 print("model saved in path:", saver.save(self.sess, save_path=save_path))
-                saver.save(self.sess, str(save_path).replace('<episode>', str(episodes)))
+                # saver.save(self.sess, str(save_path).replace('<episode>', str(episodes)))
 
             time_steps, _ = self.sess.run(
                 [self.global_step, self.increment_global_step],
