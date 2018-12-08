@@ -31,6 +31,7 @@ class AbstractAgent:
             sess: tf.Session,
             o_shape: Iterable,
             a_shape: Sequence,
+            batch_size: int,
             reward_scale: float,
             entropy_scale: float,
             activation: Callable,
@@ -47,6 +48,7 @@ class AbstractAgent:
         self.default_train_values = [
             'entropy',
             'soft_update_xi_bar',
+            'copy_o1_embed',
             'Q_error',
             'V_loss',
             'Q_loss',
@@ -157,20 +159,15 @@ class AbstractAgent:
             if embed:
                 with tf.variable_scope('embed'):
                     lr = embed_args.pop('learning_rate') or learning_rate
-                    if embed_args['n_layers'] == 0:
-                        o1_embed = tf.Variable(
-                            np.zeros(embed_args['layer_size']), 'o1_embed')
-                        o2_embed = tf.Variable(
-                            np.zeros(embed_args['layer_size']), 'o1_embed')
-                        a_embed = tf.Variable(
-                            np.zeros(embed_args['layer_size']), 'o1_embed')
-                    else:
-                        with tf.variable_scope('o'):
-                            O = tf.concat([self.O1, self.O2], axis=0)
-                            output = mlp(inputs=O, **embed_args)
-                            o1_embed, o2_embed, = tf.split(output, 2, axis=0)
-                        with tf.variable_scope('a'):
-                            a_embed = mlp(inputs=self.A, **embed_args)
+                    with tf.variable_scope('o'):
+                        O = tf.concat([self.O1, self.O2], axis=0)
+                        output = mlp(inputs=O, **embed_args)
+                        o1_embed, o2_embed, = tf.split(output, 2, axis=0)
+                        o1_embed_var = tf.get_variable(
+                            'o1_embed_var', shape=(batch_size, embed_args['layer_size']))
+                        self.copy_o1_embed = tf.assign(o1_embed_var, o1_embed)
+                    with tf.variable_scope('a'):
+                        a_embed = mlp(inputs=self.A, **embed_args)
 
                     norm_a_embed = tf.expand_dims(l2_normalize(a_embed, axis=1), axis=1)
                     self.embed_loss = .5 * tf.reduce_mean(

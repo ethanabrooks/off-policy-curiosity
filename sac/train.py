@@ -230,11 +230,14 @@ class Trainer:
         else:
             policy_type = GaussianPolicy
 
+        batch_size = self.batch_size
+
         class Agent(policy_type, base_agent):
             def __init__(self):
                 super(Agent, self).__init__(
                     o_shape=observation_space.shape,
                     a_shape=[space_to_size(action_space)],
+                    batch_size=batch_size,
                     **kwargs)
 
         agent = Agent()  # type: AbstractAgent
