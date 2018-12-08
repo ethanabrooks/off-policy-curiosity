@@ -4,12 +4,14 @@ import itertools
 from pathlib import Path
 import time
 from typing import Optional, Tuple
+import os
 
 # third party
 import gym
 from gym import Wrapper, spaces
 import numpy as np
 import tensorflow as tf
+from tensorboard.plugins import projector
 
 # first party
 from gym.wrappers import TimeLimit
@@ -40,7 +42,7 @@ class Trainer:
                  action_space=None,
                  observation_space=None,
                  **kwargs):
-
+        sess = tf.InteractiveSession()
         if seed is not None:
             np.random.seed(seed)
             tf.set_random_seed(seed)
@@ -97,13 +99,16 @@ class Trainer:
               logdir: Path,
               render: bool = False,
               save_threshold: int = None):
+
         saver = tf.train.Saver()
-        tb_writer = None
+        writer = None
         if load_path:
             saver.restore(self.sess, load_path)
             print("Model restored from", load_path)
         if logdir:
-            tb_writer = tf.summary.FileWriter(logdir=logdir, graph=self.sess.graph)
+            writer = tf.summary.FileWriter(str(logdir), self.sess.graph)
+            config = projector.ProjectorConfig()
+            projector.visualize_embeddings(writer, config)
 
         past_returns = deque(maxlen=save_threshold)
         best_average = -np.inf
@@ -127,9 +132,10 @@ class Trainer:
                 else:
                     best_average = new_average
 
-            if save_path and episodes % 10 == 1 and passes_save_threshold:
+            if episodes % 10 == 1 and passes_save_threshold:
+                save_path = saver.save(self.sess, str(logdir.joinpath('model.ckpt')))
                 print("model saved in path:", saver.save(self.sess, save_path=save_path))
-                saver.save(self.sess, str(save_path).replace('<episode>', str(episodes)))
+                # saver.save(self.sess, str(save_path).replace('<episode>', str(episodes)))
 
             time_steps, _ = self.sess.run(
                 [self.global_step, self.increment_global_step],
@@ -149,8 +155,8 @@ class Trainer:
                     for k, v in self.episode_count.items():
                         if np.isscalar(v):
                             summary.value.add(tag=k.replace('_', ' '), simple_value=v)
-                tb_writer.add_summary(summary, time_steps)
-                tb_writer.flush()
+                writer.add_summary(summary, time_steps)
+                writer.flush()
 
     def is_eval_period(self):
         return self.episodes % 100 == 0
@@ -224,11 +230,14 @@ class Trainer:
         else:
             policy_type = GaussianPolicy
 
+        batch_size = self.batch_size
+
         class Agent(policy_type, base_agent):
             def __init__(self):
                 super(Agent, self).__init__(
                     o_shape=observation_space.shape,
                     a_shape=[space_to_size(action_space)],
+                    batch_size=batch_size,
                     **kwargs)
 
         agent = Agent()  # type: AbstractAgent

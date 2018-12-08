@@ -31,6 +31,7 @@ class AbstractAgent:
             sess: tf.Session,
             o_shape: Iterable,
             a_shape: Sequence,
+            batch_size: int,
             reward_scale: float,
             entropy_scale: float,
             activation: Callable,
@@ -47,6 +48,7 @@ class AbstractAgent:
         self.default_train_values = [
             'entropy',
             'soft_update_xi_bar',
+            'copy_o1_embed',
             'Q_error',
             'V_loss',
             'Q_loss',
@@ -72,7 +74,7 @@ class AbstractAgent:
         self.initial_state = None
         self.sess = sess
 
-        with tf.device('/gpu:' + str(device_num)), tf.variable_scope(scope, reuse=reuse):
+        with tf.device('/cpu:0'), tf.variable_scope(scope, reuse=reuse):
             self.global_step = tf.Variable(0, name='global_step')
 
             self.O1 = tf.placeholder(tf.float32, [None] + list(o_shape), name='O1')
@@ -156,11 +158,14 @@ class AbstractAgent:
             # embeddings
             if embed:
                 with tf.variable_scope('embed'):
-                    lr = embed_args.pop('lr') or learning_rate
+                    lr = embed_args.pop('learning_rate') or learning_rate
                     with tf.variable_scope('o'):
                         O = tf.concat([self.O1, self.O2], axis=0)
                         output = mlp(inputs=O, **embed_args)
-                        o1_embed, o2_embed, = tf.split(output, 2, axis=0, name='o_embed')
+                        o1_embed, o2_embed, = tf.split(output, 2, axis=0)
+                        o1_embed_var = tf.get_variable(
+                            'o1_embed_var', shape=(batch_size, embed_args['layer_size']))
+                        self.copy_o1_embed = tf.assign(o1_embed_var, o1_embed)
                     with tf.variable_scope('a'):
                         a_embed = mlp(inputs=self.A, **embed_args)
 
