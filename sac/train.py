@@ -101,14 +101,14 @@ class Trainer:
               save_threshold: int = None):
 
         saver = tf.train.Saver()
-        tb_writer = None
+        writer = None
         if load_path:
             saver.restore(self.sess, load_path)
             print("Model restored from", load_path)
         if logdir:
             with tf.device("/cpu:0"):
                 embedding = tf.Variable(
-                    np.random.random((9, 10)), trainable=False, name='embedding')
+                    np.random.random((1, 10)), trainable=False, name='embedding')
 
             tf.global_variables_initializer().run()
 
@@ -166,8 +166,8 @@ class Trainer:
                     for k, v in self.episode_count.items():
                         if np.isscalar(v):
                             summary.value.add(tag=k.replace('_', ' '), simple_value=v)
-                tb_writer.add_summary(summary, time_steps)
-                tb_writer.flush()
+                writer.add_summary(summary, time_steps)
+                writer.flush()
 
     def is_eval_period(self):
         return self.episodes % 100 == 0
