@@ -132,11 +132,11 @@ class Trainer:
                 else:
                     best_average = new_average
 
-            if episodes % 10 == 1 and passes_save_threshold:
+            if logdir and episodes % 10 == 1 and passes_save_threshold:
                 save_path = saver.save(self.sess, str(logdir.joinpath('model.ckpt')))
                 print("model saved in path:", saver.save(self.sess, save_path=save_path))
-                embed_save_path = embed_saver.save(self.sess, str(logdir.joinpath(
-                    'embed','model.ckpt')))
+                embed_save_path = embed_saver.save(
+                    self.sess, str(logdir.joinpath('embed', 'model.ckpt')))
                 print("embeddings saved in path:", embed_save_path)
                 # saver.save(self.sess, str(save_path).replace('<episode>', str(episodes)))
 

@@ -48,7 +48,6 @@ class AbstractAgent:
         self.default_train_values = [
             'entropy',
             'soft_update_xi_bar',
-            'copy_o1_embed',
             'Q_error',
             'V_loss',
             'Q_loss',
@@ -63,9 +62,13 @@ class AbstractAgent:
         embed = bool(embed_args)
         if embed:
             self.default_train_values.extend([
+                'copy_o1_embed',
                 'embed_loss',
                 'embed_grad',
                 'train_embed',
+                'o1_embed',
+                'o2_embed',
+                'a_embed',
             ])
         self.reward_scale = reward_scale
         self.activation = activation
@@ -163,11 +166,17 @@ class AbstractAgent:
                         O = tf.concat([self.O1, self.O2], axis=0)
                         output = mlp(inputs=O, **embed_args)
                         o1_embed, o2_embed, = tf.split(output, 2, axis=0)
+                        # o1_embed = tf.Print(o1_embed, [o1_embed], summarize=1e5)
+
                         self.o1_embed_var = tf.get_variable(
                             'o1_embed_var', shape=(batch_size, embed_args['layer_size']))
                         self.copy_o1_embed = tf.assign(self.o1_embed_var, o1_embed)
                     with tf.variable_scope('a'):
                         a_embed = mlp(inputs=self.A, **embed_args)
+
+                    self.o1_embed = o1_embed
+                    self.o2_embed = o2_embed
+                    self.a_embed = a_embed
 
                     norm_a_embed = tf.expand_dims(l2_normalize(a_embed, axis=1), axis=1)
                     self.embed_loss = .5 * tf.reduce_mean(
@@ -206,9 +215,8 @@ class AbstractAgent:
             self.O2: step.o2,
             self.T: step.t,
         }
-        return self.sess.run(
-            {attr: getattr(self, attr)
-             for attr in self.default_train_values}, feed_dict)
+        fetch = {attr: getattr(self, attr) for attr in self.default_train_values}
+        return self.sess.run(fetch, feed_dict)
 
     def get_actions(self, o: ArrayLike, sample: bool = True, state=None) -> NetworkOutput:
         A = self.A_sampled1 if sample else self.A_max_likelihood
