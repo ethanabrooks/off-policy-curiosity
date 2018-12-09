@@ -202,11 +202,7 @@ class Trainer:
 
     def train_step(self, sample=None):
         sample = sample or self.sample_buffer()
-        r = self.agents.act.train_step(sample)
-        if not np.allclose(r['embed_baseline'], 1., atol=.01):
-            import ipdb
-            ipdb.set_trace()
-        return r
+        return self.agents.act.train_step(sample)
 
     def perform_update(self):
         counter = Counter()
@@ -214,7 +210,7 @@ class Trainer:
             for i in range(self.n_train_steps):
                 counter.update(
                     Counter({
-                        k.replace(' ', '_'): v
+                        k.replace(' ', '_'): v / self.n_train_steps
                         for k, v in self.train_step().items() if np.isscalar(v)
                     }))
         return counter
