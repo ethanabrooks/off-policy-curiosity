@@ -176,7 +176,7 @@ class AbstractAgent:
                     with tf.variable_scope('a'):
                         a_embed = mlp(inputs=self.A, **embed_args)
 
-                    norm_a_embed = l2_normalize(a_embed, axis=1)
+                    norm_a_embed = l2_normalize(a_embed, axis=1, epsilon=1e-15)
 
                     self.o1_embed = o1_embed
                     self.o2_embed = o2_embed
