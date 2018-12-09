@@ -202,7 +202,11 @@ class Trainer:
 
     def train_step(self, sample=None):
         sample = sample or self.sample_buffer()
-        return self.agents.act.train_step(sample)
+        r = self.agents.act.train_step(sample)
+        if not np.allclose(r['embed_baseline'], 1., atol=.01):
+            import ipdb
+            ipdb.set_trace()
+        return r
 
     def perform_update(self):
         counter = Counter()

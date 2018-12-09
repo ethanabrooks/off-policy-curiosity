@@ -183,10 +183,9 @@ class AbstractAgent:
                     self.a_embed = a_embed
                     self.norm_a_embed = norm_a_embed
 
-                    self.embed_loss = .5 * tf.reduce_mean(
+                    self.embed_loss = tf.reduce_mean(
                         tf.norm(o1_embed + norm_a_embed - o2_embed, axis=1))
-                    self.embed_baseline = .5 * tf.reduce_mean(
-                        tf.norm(norm_a_embed, axis=1))
+                    self.embed_baseline = tf.reduce_mean(tf.norm(norm_a_embed, axis=1))
 
                 embed_vars = get_variables('embed')
                 self.train_embed, self.embed_grad = train_op(self.embed_loss, embed_vars,
