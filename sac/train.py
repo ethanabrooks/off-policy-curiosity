@@ -42,7 +42,6 @@ class Trainer:
                  action_space=None,
                  observation_space=None,
                  **kwargs):
-        sess = tf.InteractiveSession()
         if seed is not None:
             np.random.seed(seed)
             tf.set_random_seed(seed)
