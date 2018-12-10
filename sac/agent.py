@@ -58,7 +58,6 @@ class AbstractAgent:
             'train_V',
             'train_Q',
             'train_pi',
-            'check',
             'o1_embed',
             'o2_embed',
             'a_embed',
@@ -206,7 +205,7 @@ class AbstractAgent:
                 for (xbar, x) in zip(xi_bar, xi)
             ]
             self.soft_update_xi_bar = tf.group(*soft_update_xi_bar_ops)
-            self.check = tf.add_check_numerics_ops()
+            # self.check = tf.add_check_numerics_ops()
             self.entropy = tf.reduce_mean(self.entropy_from_params(self.parameters))
             # ensure that xi and xi_bar are the same at initialization
 
