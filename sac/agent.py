@@ -166,8 +166,9 @@ class AbstractAgent:
                         # o1_embed = tf.Print(o1_embed, [o1_embed], summarize=1e5)
 
                         # projector stuff
+                        embed_size = embed_args['layer_size']
                         self.o1_embed_var = tf.get_variable(
-                            'o1_embed_var', shape=(batch_size, embed_args['layer_size']))
+                            'o1_embed_var', shape=(batch_size, embed_size))
                         self.copy_o1_embed = tf.assign(self.o1_embed_var, o1_embed)
                     with tf.variable_scope('a'):
                         a_embed = mlp(inputs=self.A, **embed_args)
@@ -186,7 +187,10 @@ class AbstractAgent:
                     tf.norm(o1_embed + norm_a_embed - o2_embed, axis=1))
                 self.regularization = tf.reduce_mean(
                     tf.minimum(tf.norm(a_embed, axis=1), 1))
-                self.embed_baseline = tf.reduce_mean(tf.norm(norm_a_embed, axis=1))
+                o1_random = tf.random_normal([batch_size, embed_size])
+                o2_random = tf.random_normal([batch_size, embed_size])
+                self.embed_baseline = tf.reduce_mean(
+                    tf.norm(o1_random + norm_a_embed - o2_random, axis=1))
 
                 embed1_vars = tf.trainable_variables('agent/embed')
                 embed2_vars = tf.trainable_variables('agent/embed2')
