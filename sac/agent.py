@@ -59,6 +59,10 @@ class AbstractAgent:
             'train_Q',
             'train_pi',
             'check',
+            'o1_embed',
+            'o2_embed',
+            'a_embed',
+            'norm_a_embed',
         ]
         embed = bool(embed_args)
         if embed:
