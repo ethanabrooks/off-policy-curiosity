@@ -184,7 +184,8 @@ class AbstractAgent:
 
                 self.embed_loss = tf.reduce_mean(tf.norm(o1_embed + norm_a_embed -
                                                          o2_embed, axis=1))
-                self.regularization = tf.minimum(tf.norm(a_embed, axis=1), 1)
+                self.regularization = tf.reduce_mean(tf.minimum(tf.norm(a_embed,
+                                                                        axis=1), 1))
                 self.embed_baseline = tf.reduce_mean(tf.norm(norm_a_embed, axis=1))
 
                 embed1_vars = tf.trainable_variables('agent/embed')
@@ -197,8 +198,6 @@ class AbstractAgent:
                     tf.assign(var2, tau * var1 + (1 - tau) * var2)
                     for (var1, var2) in zip(embed1_vars, embed2_vars)
                 ])
-
-
 
             soft_update_xi_bar_ops = [
                 tf.assign(xbar, tau * x + (1 - tau) * xbar)
@@ -224,10 +223,10 @@ class AbstractAgent:
     def train_step(self, step: Step) -> dict:
         feed_dict = {
             self.O1: step.o1,
-            self.A: step.a,
-            self.R: np.array(step.r) * self.reward_scale,
+            self.A:  step.a,
+            self.R:  np.array(step.r) * self.reward_scale,
             self.O2: step.o2,
-            self.T: step.t,
+            self.T:  step.t,
         }
         fetch = {attr: getattr(self, attr) for attr in self.default_train_values}
         return self.sess.run(fetch, feed_dict)
@@ -264,10 +263,10 @@ class AbstractAgent:
             self.Q_error,
             feed_dict={
                 self.O1: step.o1,
-                self.A: step.a,
-                self.R: step.r,
+                self.A:  step.a,
+                self.R:  step.r,
                 self.O2: step.o2,
-                self.T: step.t
+                self.T:  step.t
             })
 
     def _print(self, tensor, name: str):
