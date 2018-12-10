@@ -175,7 +175,7 @@ class AbstractAgent:
                     with tf.variable_scope('a'):
                         a_embed = mlp(inputs=self.A, **embed_args)
 
-                    norm_a_embed = l2_normalize(a_embed, axis=1, epsilon=1e-15)
+                    norm_a_embed = l2_normalize(a_embed, axis=1)
 
                 with tf.variable_scope('embed2'):
                     o2_embed = mlp(inputs=self.O1, **embed_args)
@@ -186,7 +186,8 @@ class AbstractAgent:
                 self.norm_a_embed = norm_a_embed
 
                 self.embed_loss = tf.reduce_mean(
-                    tf.norm(o1_embed + norm_a_embed - o2_embed, axis=1))
+                    tf.norm(o1_embed + norm_a_embed - o2_embed, axis=1) -
+                    tf.minimum(tf.norm(a_embed, axis=1), 1))
                 self.embed_baseline = tf.reduce_mean(tf.norm(norm_a_embed, axis=1))
 
                 embed1_vars = tf.trainable_variables('agent/embed')
