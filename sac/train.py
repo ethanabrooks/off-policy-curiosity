@@ -203,12 +203,12 @@ class Trainer:
     def train_step(self, sample=None):
         sample = sample or self.sample_buffer()
         r = self.agents.act.train_step(sample)
-        o1 = r['o1_embed']
-        o2 = r['o2_embed']
-        a1 = r['a_embed']
-        norm = r['norm_a_embed']
-        import ipdb
-        ipdb.set_trace()
+        # o1 = r['o1_embed']
+        # o2 = r['o2_embed']
+        # a1 = r['a_embed']
+        # norm = r['norm_a_embed']
+        # import ipdb
+        # ipdb.set_trace()
         return r
 
     def perform_update(self):
