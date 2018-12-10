@@ -67,10 +67,7 @@ class AbstractAgent:
                 'embed_grad',
                 'embed_baseline',
                 'train_embed',
-                'o1_embed',
-                'o2_embed',
-                'a_embed',
-                'norm_a_embed',
+                'regularization'
             ])
         self.reward_scale = reward_scale
         self.activation = activation
@@ -185,16 +182,16 @@ class AbstractAgent:
                 self.a_embed = a_embed
                 self.norm_a_embed = norm_a_embed
 
-                self.embed_loss = tf.reduce_mean(
-                    tf.norm(o1_embed + norm_a_embed - o2_embed, axis=1) -
-                    tf.minimum(tf.norm(a_embed, axis=1), 1))
+                self.embed_loss = tf.reduce_mean(tf.norm(o1_embed + norm_a_embed -
+                                                         o2_embed, axis=1))
+                self.regularization = tf.minimum(tf.norm(a_embed, axis=1), 1)
                 self.embed_baseline = tf.reduce_mean(tf.norm(norm_a_embed, axis=1))
 
                 embed1_vars = tf.trainable_variables('agent/embed')
                 embed2_vars = tf.trainable_variables('agent/embed2')
 
                 self.train_embed, self.embed_grad = train_op(
-                    self.embed_loss, embed1_vars, lr)
+                    self.embed_loss - self.regularization, embed1_vars, lr)
 
                 self.train_embed = tf.group(self.train_embed, *[
                     tf.assign(var2, tau * var1 + (1 - tau) * var2)
