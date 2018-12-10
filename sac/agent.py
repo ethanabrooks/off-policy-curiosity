@@ -164,12 +164,11 @@ class AbstractAgent:
             if embed:
                 with tf.variable_scope('embed'):
                     lr = embed_args.pop('learning_rate') or learning_rate
-                    with tf.variable_scope('o'):
-                        O = tf.concat([self.O1, self.O2], axis=0)
-                        output = mlp(inputs=O, **embed_args)
-                        o1_embed, o2_embed, = tf.split(output, 2, axis=0)
+                    with tf.variable_scope('o1'):
+                        o1_embed = mlp(inputs=self.O1, **embed_args)
                         # o1_embed = tf.Print(o1_embed, [o1_embed], summarize=1e5)
 
+                        # projector stuff
                         self.o1_embed_var = tf.get_variable(
                             'o1_embed_var', shape=(batch_size, embed_args['layer_size']))
                         self.copy_o1_embed = tf.assign(self.o1_embed_var, o1_embed)
@@ -178,18 +177,30 @@ class AbstractAgent:
 
                     norm_a_embed = l2_normalize(a_embed, axis=1, epsilon=1e-15)
 
-                    self.o1_embed = o1_embed
-                    self.o2_embed = o2_embed
-                    self.a_embed = a_embed
-                    self.norm_a_embed = norm_a_embed
+                with tf.variable_scope('embed2'):
+                    o2_embed = mlp(inputs=self.O1, **embed_args)
 
-                    self.embed_loss = tf.reduce_mean(
-                        tf.norm(o1_embed + norm_a_embed - o2_embed, axis=1))
-                    self.embed_baseline = tf.reduce_mean(tf.norm(norm_a_embed, axis=1))
+                self.o1_embed = o1_embed
+                self.o2_embed = o2_embed
+                self.a_embed = a_embed
+                self.norm_a_embed = norm_a_embed
 
-                embed_vars = get_variables('embed')
-                self.train_embed, self.embed_grad = train_op(self.embed_loss, embed_vars,
-                                                             lr)
+                self.embed_loss = tf.reduce_mean(
+                    tf.norm(o1_embed + norm_a_embed - o2_embed, axis=1))
+                self.embed_baseline = tf.reduce_mean(tf.norm(norm_a_embed, axis=1))
+
+                embed1_vars = tf.trainable_variables('agent/embed')
+                embed2_vars = tf.trainable_variables('agent/embed2')
+
+                self.train_embed, self.embed_grad = train_op(
+                    self.embed_loss, embed1_vars, lr)
+
+                self.train_embed = tf.group(self.train_embed, *[
+                    tf.assign(var2, tau * var1 + (1 - tau) * var2)
+                    for (var1, var2) in zip(embed1_vars, embed2_vars)
+                ])
+
+
 
             soft_update_xi_bar_ops = [
                 tf.assign(xbar, tau * x + (1 - tau) * xbar)
