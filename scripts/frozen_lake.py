@@ -7,7 +7,7 @@ import tensorflow as tf
 from environments.frozen_lake import FrozenLakeEnv
 from environments.hierarchical_wrapper import FrozenLakeHierarchicalWrapper
 from sac.hierarchical_trainer import HierarchicalTrainer
-from sac.networks import MlpAgent
+from sac.networks import MLPAgent
 from sac.train import Trainer
 from sac.utils import create_sess
 
@@ -65,7 +65,7 @@ def cli(seed, buffer_size, n_layers, layer_size, learning_rate, entropy_scale,
 
     kwargs = dict(
         sess=create_sess(),
-        base_agent=MlpAgent,
+        base_agent=MLPAgent,
         seq_len=0,
         device_num=1,
         seed=seed,

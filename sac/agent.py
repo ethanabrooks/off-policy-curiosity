@@ -1,16 +1,15 @@
 # stdlib
+import enum
 from abc import abstractmethod
 from collections import namedtuple
-import enum
-from typing import Callable, Iterable, List, Sequence
+from typing import Callable, Collection
 
 # third party
 import numpy as np
 import tensorflow as tf
-from tensorflow.python.ops.nn_impl import l2_normalize
 
 # first party
-from sac.utils import ArrayLike, Step, mlp
+from sac.utils import ArrayLike, Step
 
 NetworkOutput = namedtuple('NetworkOutput', 'output state')
 
@@ -25,13 +24,22 @@ class ModelType(enum.Enum):
         return self.value
 
 
+def make_network(input_size: int, sizes: Collection[int], activation, use_bias=True) -> \
+        tf.keras.Sequential:
+    assert len(sizes) >= 1
+    return tf.keras.Sequential([
+        tf.layers.Dense(
+            input_shape=(in_size,),
+            units=out_size, activation=activation, use_bias=use_bias)
+        for in_size, out_size in zip([input_size] + sizes, sizes)
+    ])
+
+
 class AbstractAgent:
     def __init__(
             self,
-            sess: tf.Session,
-            o_shape: Iterable,
-            a_shape: Sequence,
-            batch_size: int,
+            a_size: int,
+            o_size: int,
             reward_scale: float,
             entropy_scale: float,
             activation: Callable,
@@ -39,240 +47,117 @@ class AbstractAgent:
             layer_size: int,
             learning_rate: float,
             grad_clip: float,
-            device_num: int = 1,
             embed_args: dict = None,
-            reuse: bool = False,
-            scope: str = 'agent',
     ) -> None:
 
-        self.default_train_values = [
-            'entropy',
-            'soft_update_xi_bar',
-            'Q_error',
-            'V_loss',
-            'Q_loss',
-            'pi_loss',
-            'V_grad',
-            'Q_grad',
-            'pi_grad',
-            'train_V',
-            'train_Q',
-            'train_pi',
-            'check',
-            'o1_embed',
-            'o2_embed',
-            'a_embed',
-            'norm_a_embed',
-        ]
-        embed = bool(embed_args)
-        if embed:
-            self.default_train_values.extend([
-                'copy_o1_embed', 'embed_loss', 'embed_grad', 'embed_baseline',
-                'train_embed', 'regularization'
-            ])
+        self.embed_args = embed_args
+        self.embed = bool(embed_args)
+        self.grad_clip = grad_clip
+        self.learning_rate = learning_rate
+        self.entropy_scale = entropy_scale
+        self.a_size = a_size
         self.reward_scale = reward_scale
         self.activation = activation
-        self.n_layers = n_layers
-        self.layer_size = layer_size
-        self.initial_state = None
-        self.sess = sess
 
-        with tf.device('/cpu:0'), tf.variable_scope(scope, reuse=reuse):
-            self.global_step = tf.Variable(0, name='global_step')
+        def _make_network(input_size, last_layer) -> tf.keras.Sequential:
+            return make_network(input_size=input_size,
+                                sizes=[layer_size] * n_layers + [last_layer],
+                                activation=activation)
 
-            self.O1 = tf.placeholder(tf.float32, [None] + list(o_shape), name='O1')
-            self.O2 = tf.placeholder(tf.float32, [None] + list(o_shape), name='O2')
-            self.A = A = tf.placeholder(tf.float32, [None] + list(a_shape), name='A')
-            self.R = R = tf.placeholder(tf.float32, [None], name='R')
-            self.T = T = tf.placeholder(tf.float32, [None], name='T')
-            gamma = tf.constant(0.99)
-            tau = 0.01
+        self.pi_network = _make_network(o_size, a_size)
+        self.q_network = _make_network(a_size + o_size, 1)
+        self.v1_network = _make_network(o_size, 1)
+        self.v2_network = _make_network(o_size, 1)
 
-            processed_s, self.S_new = self.pi_network(self.O1)
-            parameters = self.parameters = self.produce_policy_parameters(
-                a_shape[0], processed_s)
+        self.v2_network.set_weights(self.v1_network.get_weights())
+        self.global_step = tf.Variable(0, name='global_step')
+        self.optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+        if embed_args:
+            self.embed_optimizer = tf.train.AdamOptimizer(
+                learning_rate=embed_args.pop('learning_rate', learning_rate))
 
-            def pi_network_log_prob(a: tf.Tensor, name: str, _reuse: bool) \
-                    -> tf.Tensor:
-                with tf.variable_scope(name, reuse=_reuse):
-                    return self.policy_parameters_to_log_prob(a, parameters)
-
-            def sample_pi_network(name: str, _reuse: bool) -> tf.Tensor:
-                with tf.variable_scope(name, reuse=_reuse):
-                    return self.policy_parameters_to_sample(parameters)
-
-            # generate actions:
-            self.A_max_likelihood = tf.stop_gradient(
-                self.policy_parameters_to_max_likelihood_action(parameters))
-            self.A_sampled1 = A_sampled1 = tf.stop_gradient(
-                sample_pi_network('pi', _reuse=True))
-
-            # constructing V loss
-            v1 = self.v_network(self.O1, 'V')
-            self.v1 = v1
-            q1 = self.q_network(self.O1, self.transform_action_sample(A_sampled1), 'Q')
-            log_pi_sampled1 = pi_network_log_prob(A_sampled1, 'pi', _reuse=True)
-            log_pi_sampled1 *= entropy_scale  # type: tf.Tensor
-            self.V_loss = V_loss = tf.reduce_mean(
-                0.5 * tf.square(v1 - (q1 - log_pi_sampled1)))
-
-            # constructing Q loss
-            self.v2 = v2 = self.v_network(self.O2, 'V_bar')
-            self.q1 = q = self.q_network(
-                self.O1, self.transform_action_sample(A), 'Q', reuse=True)
-            not_done = 1 - T  # type: tf.Tensor
-            self.q_target = q_target = R + gamma * not_done * v2
-            self.Q_error = tf.square(q - q_target)
-            self.Q_loss = Q_loss = tf.reduce_mean(0.5 * self.Q_error)
-
-            # constructing pi loss
-            self.A_sampled2 = A_sampled2 = tf.stop_gradient(
-                sample_pi_network('pi', _reuse=True))
-            q2 = self.q_network(
-                self.O1, self.transform_action_sample(A_sampled2), 'Q', reuse=True)
-            log_pi_sampled2 = pi_network_log_prob(A_sampled2, 'pi', _reuse=True)
-            log_pi_sampled2 *= entropy_scale  # type: tf.Tensor
-            self.pi_loss = pi_loss = tf.reduce_mean(
-                log_pi_sampled2 * tf.stop_gradient(log_pi_sampled2 - q2 + v1))
-
-            # grabbing all the relevant variables
-            def get_variables(var_name: str) -> List[tf.Variable]:
-                return tf.get_collection(
-                    tf.GraphKeys.TRAINABLE_VARIABLES, scope=f'{scope}/{var_name}/')
-
-            phi, theta, xi, xi_bar = map(get_variables, ['pi', 'Q', 'V', 'V_bar'])
-
-            def train_op(loss, var_list, lr=learning_rate):
-                optimizer = tf.train.AdamOptimizer(learning_rate=lr)
-                gradients, variables = zip(
-                    *optimizer.compute_gradients(loss, var_list=var_list))
-                if grad_clip:
-                    gradients, norm = tf.clip_by_global_norm(gradients, grad_clip)
-                else:
-                    norm = tf.global_norm(gradients)
-                op = optimizer.apply_gradients(
-                    zip(gradients, variables), global_step=self.global_step)
-                return op, norm
-
-            self.train_V, self.V_grad = train_op(loss=V_loss, var_list=xi)
-            self.train_Q, self.Q_grad = train_op(loss=Q_loss, var_list=theta)
-            self.train_pi, self.pi_grad = train_op(loss=pi_loss, var_list=phi)
-
-            # embeddings
-            if embed:
-                with tf.variable_scope('embed'):
-                    lr = embed_args.pop('learning_rate') or learning_rate
-                    with tf.variable_scope('o1'):
-                        o1_embed = mlp(inputs=self.O1, **embed_args)
-                        # o1_embed = tf.Print(o1_embed, [o1_embed], summarize=1e5)
-
-                        # projector stuff
-                        self.o1_embed_var = tf.get_variable(
-                            'o1_embed_var', shape=(batch_size, embed_args['layer_size']))
-                        self.copy_o1_embed = tf.assign(self.o1_embed_var, o1_embed)
-                    with tf.variable_scope('a'):
-                        a_embed = mlp(inputs=self.A, **embed_args)
-
-                    norm_a_embed = l2_normalize(a_embed, axis=1)
-
-                with tf.variable_scope('embed2'):
-                    o2_embed = mlp(inputs=self.O1, **embed_args)
-
-                self.o1_embed = o1_embed
-                self.o2_embed = o2_embed
-                self.a_embed = a_embed
-                self.norm_a_embed = norm_a_embed
-
-                self.embed_loss = tf.reduce_mean(
-                    tf.norm(o1_embed + norm_a_embed - o2_embed, axis=1))
-                self.regularization = tf.reduce_mean(
-                    tf.minimum(tf.norm(a_embed, axis=1), 1))
-                self.embed_baseline = tf.reduce_mean(tf.norm(norm_a_embed, axis=1))
-
-                embed1_vars = tf.trainable_variables('agent/embed')
-                embed2_vars = tf.trainable_variables('agent/embed2')
-
-                self.train_embed, self.embed_grad = train_op(
-                    self.embed_loss - self.regularization, embed1_vars, lr)
-
-                self.train_embed = tf.group(
-                    self.train_embed, *[
-                        tf.assign(var2, tau * var1 + (1 - tau) * var2)
-                        for (var1, var2) in zip(embed1_vars, embed2_vars)
-                    ])
-
-            soft_update_xi_bar_ops = [
-                tf.assign(xbar, tau * x + (1 - tau) * xbar)
-                for (xbar, x) in zip(xi_bar, xi)
-            ]
-            self.soft_update_xi_bar = tf.group(*soft_update_xi_bar_ops)
-            self.check = tf.add_check_numerics_ops()
-            self.entropy = tf.reduce_mean(self.entropy_from_params(self.parameters))
-            # ensure that xi and xi_bar are the same at initialization
-
-            sess.run(tf.global_variables_initializer())
-
-            # ensure that xi and xi_bar are the same at initialization
-            hard_update_xi_bar_ops = [tf.assign(xbar, x) for (xbar, x) in zip(xi_bar, xi)]
-
-            hard_update_xi_bar = tf.group(*hard_update_xi_bar_ops)
-            sess.run(hard_update_xi_bar)
-
-    @property
-    def seq_len(self):
-        return self._seq_len
+    def get_parameters(self, o1):
+        processed_s = self.pi_network(o1)
+        return self.produce_policy_parameters(self.a_size, processed_s)
 
     def train_step(self, step: Step) -> dict:
-        feed_dict = {
-            self.O1: step.o1,
-            self.A: step.a,
-            self.R: np.array(step.r) * self.reward_scale,
-            self.O2: step.o2,
-            self.T: step.t,
-        }
-        fetch = {attr: getattr(self, attr) for attr in self.default_train_values}
-        return self.sess.run(fetch, feed_dict)
+        step = Step(*[tf.convert_to_tensor(x, dtype=tf.float32) for x in step])
+        gamma = tf.constant(0.99)
+        tau = 0.01
 
-    def get_actions(self, o: ArrayLike, sample: bool = True, state=None) -> NetworkOutput:
-        A = self.A_sampled1 if sample else self.A_max_likelihood
-        return NetworkOutput(output=self.sess.run(A, {self.O1: [o]})[0], state=0)
+        def update(network: tf.keras.Model, loss: tf.Tensor, tape: tf.GradientTape):
+            variables = network.trainable_variables
+            gradients = tape.gradient(loss, variables)
+            if self.grad_clip:
+                gradients, norm = tf.clip_by_global_norm(gradients, self.grad_clip)
+            else:
+                norm = tf.global_norm(gradients)
 
-    def pi_network(self, o: tf.Tensor) -> NetworkOutput:
-        with tf.variable_scope('pi'):
-            return self.network(o)
+            self.optimizer.apply_gradients(zip(gradients, variables))
+            return norm
 
-    def q_network(self, o: tf.Tensor, a: tf.Tensor, name: str,
-                  reuse: bool = None) -> tf.Tensor:
-        with tf.variable_scope(name, reuse=reuse):
-            oa = tf.concat([o, a], axis=1)
-            return tf.reshape(tf.layers.dense(self.network(oa).output, 1, name='q'), [-1])
+        with tf.GradientTape() as tape:
+            parameters = self.get_parameters(step.o1)
+            A_sampled1 = self.policy_parameters_to_sample(parameters)
+            A_sampled2 = self.policy_parameters_to_sample(parameters)
 
-    def v_network(self, o: tf.Tensor, name: str, reuse: bool = None) -> tf.Tensor:
-        with tf.variable_scope(name, reuse=reuse):
-            return tf.reshape(tf.layers.dense(self.network(o).output, 1, name='v'), [-1])
+            # constructing pi loss
+            q2 = self.q_network(
+                tf.concat([step.o1, self.preprocess_action(A_sampled2)], axis=1))
+            v1 = self.v1_network(step.o1)
+            log_pi_sampled2 = self.policy_parameters_to_log_prob(A_sampled2, parameters)
+            log_pi_sampled2 *= self.entropy_scale  # type: tf.Tensor
+            pi_loss = tf.reduce_mean(
+                log_pi_sampled2 * tf.stop_gradient(log_pi_sampled2 - q2 + v1))
 
-    def get_v1(self, o1: np.ndarray):
-        return self.sess.run(self.v1, feed_dict={self.O1: [o1]})[0]
+        pi_norm = update(self.pi_network, pi_loss, tape)
 
-    def get_value(self, step: Step):
-        return self.sess.run(
-            self.v1, feed_dict={
-                self.O1: step.o1,
-            })
+        with tf.GradientTape() as tape:
+            # constructing V loss
+            v1 = self.v1_network(step.o1)
+            action = self.preprocess_action(A_sampled1)
+            q1 = self.q_network(tf.concat([step.o1, action], axis=1))
+            log_pi_sampled1 = self.policy_parameters_to_log_prob(A_sampled1, parameters)
+            log_pi_sampled1 *= self.entropy_scale  # type: tf.Tensor
+            V_loss = tf.reduce_mean(0.5 * tf.square(v1 - (q1 - log_pi_sampled1)))
 
-    def td_error(self, step: Step):
-        return self.sess.run(
-            self.Q_error,
-            feed_dict={
-                self.O1: step.o1,
-                self.A: step.a,
-                self.R: step.r,
-                self.O2: step.o2,
-                self.T: step.t
-            })
+        V_norm = update(self.v1_network, V_loss, tape)
 
-    def _print(self, tensor, name: str):
-        return tf.Print(tensor, [tensor], message=name, summarize=1e5)
+        with tf.GradientTape() as tape:
+            # constructing Q loss
+            v2 = self.v2_network(step.o2)
+            q1 = self.q_network(tf.concat([step.o1, self.preprocess_action(step.a)],
+                                          axis=1))
+            not_done = 1 - step.t  # type: tf.Tensor
+            td_error = step.r + gamma * not_done * v2 - q1
+            Q_loss = tf.reduce_mean(0.5 * td_error ** 2)
+
+        Q_norm = update(self.q_network, Q_loss, tape)
+
+        for var1, var2 in zip(self.v1_network.variables, self.v2_network.variables):
+            tf.assign(var2, tau * var1 + (1 - tau) * var2)
+
+        # self.check = tf.add_check_numerics_ops()
+        entropy = tf.reduce_mean(self.entropy_from_params(parameters))
+
+        return dict(
+            entropy=entropy,
+            V_loss=V_loss,
+            Q_loss=Q_loss,
+            pi_loss=pi_loss,
+            V_grad=V_norm,
+            Q_grad=Q_norm,
+            pi_grad=pi_norm,
+        )
+
+    def get_actions(self, o: ArrayLike, sample: bool = True, state=None) -> np.array:
+        parameters = self.get_parameters(tf.convert_to_tensor(o.reshape(1, -1),
+                                                              dtype=tf.float32))
+        if sample:
+            func = self.policy_parameters_to_sample
+        else:
+            func = self.policy_parameters_to_max_likelihood_action
+        return func(parameters).numpy().reshape(-1)
 
     @abstractmethod
     def network(self, inputs: tf.Tensor) -> NetworkOutput:
@@ -297,7 +182,7 @@ class AbstractAgent:
         pass
 
     @abstractmethod
-    def transform_action_sample(self, action_sample: tf.Tensor) -> tf.Tensor:
+    def preprocess_action(self, action_sample: tf.Tensor) -> tf.Tensor:
         pass
 
     @abstractmethod

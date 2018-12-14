@@ -20,7 +20,7 @@ import tensorflow as tf
 # first party
 from environments.hindsight_wrapper import HSRHindsightWrapper, MBHSRHindsightWrapper
 from environments.hsr import HSREnv, MultiBlockHSREnv, MoveGripperEnv, get_xml_filepath
-from sac.networks import MlpAgent
+from sac.networks import MLPAgent
 from sac.train import HindsightTrainer, Trainer
 from sac.unsupervised_trainer import UnsupervisedTrainer
 
@@ -242,8 +242,6 @@ def main(
     env_class = env
     env = TimeLimit(max_episode_steps=max_steps, env=env_class(**env_args))
 
-    trainer_args['base_agent'] = MlpAgent
-
     if hindsight_args:
         trainer = HindsightTrainer(
             env=HINDSIGHT_ENVS[env_class](env=env),
@@ -303,7 +301,6 @@ def add_trainer_args(parser):
     scales.add_argument('--entropy-scale', type=float, default=1)
     parser.add_argument('--learning-rate', type=float, required=True)
     parser.add_argument('--grad-clip', type=float, required=True)
-    parser.add_argument('--debug', action='store_true')
 
 
 def add_embed_args(parser):

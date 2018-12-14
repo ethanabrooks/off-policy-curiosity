@@ -1,27 +1,27 @@
 # stdlib
-from collections import Counter, deque, namedtuple
 import itertools
-from pathlib import Path
 import time
+from collections import Counter, deque, namedtuple
+from pathlib import Path
 from typing import Optional, Tuple
-import os
 
 # third party
 import gym
-from gym import Wrapper, spaces
 import numpy as np
 import tensorflow as tf
-from tensorboard.plugins import projector
-
+from gym import Wrapper, spaces
 # first party
 from gym.wrappers import TimeLimit
+from tensorboard.plugins import projector
+from tensorflow.contrib import summary
 
 from environments.hindsight_wrapper import HindsightWrapper
 from sac.agent import AbstractAgent
+from sac.networks import MLPAgent
 from sac.policies import CategoricalPolicy, GaussianPolicy
 from sac.replay_buffer import ReplayBuffer
-from sac.utils import Obs, Shape, Step, create_sess, get_space_attrs, unwrap_env, \
-    vectorize, space_to_size
+from sac.utils import Obs, Shape, Step, unwrap_env, \
+    vectorize, space_to_size, get_space_attrs
 
 Agents = namedtuple('Agents', 'train act')
 
@@ -36,13 +36,10 @@ class Trainer:
                  buffer_size: int,
                  batch_size: int,
                  n_train_steps: int,
-                 debug: bool,
-                 sess: tf.Session = None,
                  preprocess_func=None,
-                 action_space=None,
-                 observation_space=None,
                  **kwargs):
-        sess = tf.InteractiveSession()
+        tf.enable_eager_execution()
+
         if seed is not None:
             np.random.seed(seed)
             tf.set_random_seed(seed)
@@ -54,44 +51,27 @@ class Trainer:
         self.batch_size = batch_size
         self.env = env
         self.buffer = ReplayBuffer(buffer_size)
-        self.sess = sess or create_sess(debug=debug)
-        self.action_space = action_space or env.action_space
-        observation_space = observation_space or env.observation_space
-
-        obs = env.reset()
         self.preprocess_func = preprocess_func
+        obs = env.reset()
         if preprocess_func is None and not isinstance(obs, np.ndarray):
             try:
                 self.preprocess_func = unwrap_env(
                     env, lambda e: hasattr(e, 'preprocess_obs')).preprocess_obs
             except RuntimeError:
                 self.preprocess_func = vectorize
-
         observation_space = spaces.Box(
             *[
-                self.preprocess_obs(get_space_attrs(observation_space, attr))
+                self.preprocess_obs(
+                    get_space_attrs(env.observation_space, attr))
                 for attr in ['low', 'high']
             ],
             dtype=np.float32)
 
-        self.agents = Agents(
-            act=self.build_agent(
-                sess=self.sess,
-                reuse=False,
-                action_space=action_space,
-                observation_space=observation_space,
-                **kwargs),
-            train=None)
-
-        self.seq_len = self.agents.act.seq_len
-
-        self.global_step = tf.Variable(0, name='global_step', trainable=False)
-        self.episode_time_step = tf.placeholder(tf.int32, name='episode_time_steps')
-        self.increment_global_step = tf.assign_add(self.global_step,
-                                                   self.episode_time_step)
-        self.sess.run(self.global_step.initializer)
-
-        # self.train(load_path, logdir, render, save_path)
+        self.action_space = env.action_space
+        self.agent = self.build_agent(
+            observation_space=observation_space,
+            action_space=self.action_space, **kwargs)
+        self.time_steps = tf.Variable(0, name='global_step', trainable=False)
 
     def train(self,
               load_path: Path,
@@ -99,14 +79,14 @@ class Trainer:
               render: bool = False,
               save_threshold: int = None):
 
-        saver = tf.train.Saver()
-        embed_saver = tf.train.Saver(var_list=[self.agents.act.o1_embed_var])
         writer = None
         if load_path:
-            saver.restore(self.sess, load_path)
-            print("Model restored from", load_path)
+            raise NotImplementedError
+            # TODO
+            # saver.restore(self.sess, load_path)
+            # print("Model restored from", load_path)
         if logdir:
-            writer = tf.summary.FileWriter(str(logdir), self.sess.graph)
+            # writer = tf.summary.FileWriter(str(logdir), self.sess.graph) TODO
             config = projector.ProjectorConfig()
             projector.visualize_embeddings(writer, config)
 
@@ -132,17 +112,19 @@ class Trainer:
                 else:
                     best_average = new_average
 
-            if logdir and episodes % 10 == 1 and passes_save_threshold:
-                save_path = saver.save(self.sess, str(logdir.joinpath('model.ckpt')))
-                print("model saved in path:", saver.save(self.sess, save_path=save_path))
-                embed_save_path = embed_saver.save(
-                    self.sess, str(logdir.joinpath('embed', 'model.ckpt')))
-                print("embeddings saved in path:", embed_save_path)
-                # saver.save(self.sess, str(save_path).replace('<episode>', str(episodes)))
+            # TODO
+            # if logdir and episodes % 10 == 1 and passes_save_threshold:
+            # save_path = saver.save(self.sess, str(logdir.joinpath('model.ckpt')))
+            # print("model saved in path:", saver.save(self.sess, save_path=save_path))
+            # embed_save_path = embed_saver.save(
+            #     self.sess, str(logdir.joinpath('embed', 'model.ckpt')))
+            # print("embeddings saved in path:", embed_save_path)
+            # saver.save(self.sess, str(save_path).replace('<episode>', str(episodes)))
 
-            time_steps, _ = self.sess.run(
-                [self.global_step, self.increment_global_step],
-                {self.episode_time_step: self.episode_count['time_steps']})
+            time_steps = self.time_steps.numpy()
+            time_steps += self.episode_count['time_steps']
+            tf.assign(self.time_steps, time_steps)
+
             print_statement = f'({"EVAL" if self.is_eval_period() else "TRAIN"}) ' \
                               f'Episode: {episodes}\t ' \
                               f'Time Steps: {time_steps}\t ' \
@@ -151,15 +133,13 @@ class Trainer:
             print(print_statement)
 
             if logdir:
-                summary = tf.Summary()
-                if self.is_eval_period():
-                    summary.value.add(tag='eval return', simple_value=episode_return)
-                else:
-                    for k, v in self.episode_count.items():
-                        if np.isscalar(v):
-                            summary.value.add(tag=k.replace('_', ' '), simple_value=v)
-                writer.add_summary(summary, time_steps)
-                writer.flush()
+                with tf.contrib.summary.record_summaries_every_n_global_steps(1):
+                    if self.is_eval_period():
+                        summary.scalar('eval return', episode_return)
+                    else:
+                        for k, v in self.episode_count.items():
+                            if np.isscalar(v):
+                                summary.scalar(k.replace('_', ' '), v)
 
     def is_eval_period(self):
         return self.episodes % 100 == 0
@@ -177,16 +157,16 @@ class Trainer:
         episode_count = Counter()
         episode_mean = Counter()
         tick = time.time()
-        s = self.agents.act.initial_state
         for time_steps in itertools.count(1):
-            a, s = self.get_actions(o1, s, sample=not eval_period)
+            a = self.agent.get_actions(self.preprocess_obs(o1),
+                                       sample=not eval_period)
             o2, r, t, info = self.step(a, render)
             if 'print' in info:
                 print('Time step:', time_steps, info['print'])
             if not eval_period:
                 episode_mean.update(self.perform_update())
 
-            self.add_to_buffer(Step(s=s, o1=o1, a=a, r=r, o2=o2, t=t))
+            self.add_to_buffer(Step(o1=o1, a=a, r=r, o2=o2, t=t))
             o1 = o2
             # noinspection PyTypeChecker
             episode_mean.update(
@@ -202,14 +182,7 @@ class Trainer:
 
     def train_step(self, sample=None):
         sample = sample or self.sample_buffer()
-        r = self.agents.act.train_step(sample)
-        o1 = r['o1_embed']
-        o2 = r['o2_embed']
-        a1 = r['a_embed']
-        norm = r['norm_a_embed']
-        import ipdb
-        ipdb.set_trace()
-        return r
+        return self.agent.train_step(sample)
 
     def perform_update(self):
         counter = Counter()
@@ -222,36 +195,22 @@ class Trainer:
                     }))
         return counter
 
-    def get_actions(self, o1, s, sample: bool):
-        obs = self.preprocess_obs(o1)
-        # assert self.observation_space.contains(obs)
-        return self.agents.act.get_actions(o=obs, state=s, sample=sample)
-
     def build_agent(self,
-                    base_agent: AbstractAgent,
                     observation_space: gym.Space,
-                    action_space: gym.Space = None,
+                    action_space: gym.Space,
                     **kwargs) -> AbstractAgent:
-        if action_space is None:
-            action_space = self.action_space
-
         if isinstance(action_space, spaces.Discrete):
             policy_type = CategoricalPolicy
         else:
             policy_type = GaussianPolicy
 
-        batch_size = self.batch_size
-
-        class Agent(policy_type, base_agent):
+        class Agent(policy_type, MLPAgent):
             def __init__(self):
                 super(Agent, self).__init__(
-                    o_shape=observation_space.shape,
-                    a_shape=[space_to_size(action_space)],
-                    batch_size=batch_size,
-                    **kwargs)
+                    o_size=observation_space.shape[0],
+                    a_size=space_to_size(action_space), **kwargs)
 
-        agent = Agent()  # type: AbstractAgent
-        return agent
+        return Agent()  # type: MLPAgent
 
     def reset(self) -> Obs:
         self.episode_count = None
@@ -289,27 +248,15 @@ class Trainer:
 
     def sample_buffer(self, batch_size=None) -> Step:
         batch_size = batch_size or self.batch_size
-        sample = Step(*self.buffer.sample(batch_size, seq_len=self.seq_len))
-        if self.seq_len is None:
-            # leave state as dummy value for non-recurrent
-            shape = [batch_size, -1]
-            return Step(
-                o1=self.preprocess_obs(sample.o1, shape=shape),
-                o2=self.preprocess_obs(sample.o2, shape=shape),
-                s=sample.s,
-                a=sample.a,
-                r=sample.r,
-                t=sample.t)
-        else:
-            # adjust state for recurrent networks
-            shape = [batch_size, self.seq_len, -1]
-            return Step(
-                o1=self.preprocess_obs(sample.o1, shape=shape),
-                o2=self.preprocess_obs(sample.o2, shape=shape),
-                s=np.swapaxes(sample.s[:, -1], 0, 1),
-                a=sample.a[:, -1],
-                r=sample.r[:, -1],
-                t=sample.t[:, -1])
+        sample = Step(*self.buffer.sample(batch_size))
+        # leave state as dummy value for non-recurrent
+        shape = [batch_size, -1]
+        return Step(
+            o1=self.preprocess_obs(sample.o1, shape=shape),
+            o2=self.preprocess_obs(sample.o2, shape=shape),
+            a=sample.a,
+            r=sample.r,
+            t=sample.t)
 
 
 class HindsightTrainer(Trainer):

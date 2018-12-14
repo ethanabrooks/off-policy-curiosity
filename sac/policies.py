@@ -36,7 +36,7 @@ class GaussianPolicy(object):
         return tf.distributions.Normal(mu, sigma).sample()
 
     @staticmethod
-    def transform_action_sample(action_sample):
+    def preprocess_action(action_sample):
         return tf.tanh(action_sample)
 
     @staticmethod
@@ -84,7 +84,7 @@ class CategoricalPolicy(object):
         return tf.one_hot(tf.argmax(logits, axis=1), a_shape)
 
     @staticmethod
-    def transform_action_sample(action_sample):
+    def preprocess_action(action_sample):
         return action_sample
 
     @staticmethod

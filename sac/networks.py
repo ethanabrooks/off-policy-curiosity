@@ -11,11 +11,7 @@ from sac.agent import AbstractAgent, NetworkOutput
 from sac.utils import ArrayLike, Step, mlp
 
 
-class MlpAgent(AbstractAgent):
-    @property
-    def seq_len(self):
-        return None
-
+class MLPAgent(AbstractAgent):
     def network(self, inputs: tf.Tensor) -> NetworkOutput:
         return NetworkOutput(
             output=mlp(

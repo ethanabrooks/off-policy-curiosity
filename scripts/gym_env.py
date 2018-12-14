@@ -4,7 +4,7 @@ import gym
 import tensorflow as tf
 
 # first party
-from sac.networks import MlpAgent
+from sac.networks import MLPAgent
 from sac.train import Trainer
 
 
@@ -33,7 +33,7 @@ def cli(env, seed, buffer_size, n_layers, layer_size, learning_rate, reward_scal
         entropy_scale, batch_size, num_train_steps, logdir, save_path, load_path, render):
     Trainer(
         env=gym.make(env),
-        base_agent=MlpAgent,
+        base_agent=MLPAgent,
         seq_len=0,
         device_num=1,
         seed=seed,
