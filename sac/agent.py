@@ -96,34 +96,27 @@ class AbstractAgent:
             self.optimizer.apply_gradients(zip(gradients, variables))
             return norm
 
-        with tf.GradientTape() as tape:
+        with tf.GradientTape(persistent=True) as tape:
             parameters = self.get_parameters(step.o1)
             A_sampled1 = self.policy_parameters_to_sample(parameters)
             A_sampled2 = self.policy_parameters_to_sample(parameters)
 
             # constructing pi loss
+            log_pi_sampled2 = self.policy_parameters_to_log_prob(A_sampled2, parameters)
+            log_pi_sampled2 *= self.entropy_scale  # type: tf.Tensor
             q2 = self.q_network(
                 tf.concat([step.o1, self.preprocess_action(A_sampled2)], axis=1))
             v1 = self.v1_network(step.o1)
-            log_pi_sampled2 = self.policy_parameters_to_log_prob(A_sampled2, parameters)
-            log_pi_sampled2 *= self.entropy_scale  # type: tf.Tensor
             pi_loss = tf.reduce_mean(
                 log_pi_sampled2 * tf.stop_gradient(log_pi_sampled2 - q2 + v1))
 
-        pi_norm = update(self.pi_network, pi_loss, tape)
-
-        with tf.GradientTape() as tape:
             # constructing V loss
-            v1 = self.v1_network(step.o1)
-            action = self.preprocess_action(A_sampled1)
-            q1 = self.q_network(tf.concat([step.o1, action], axis=1))
+            q1 = self.q_network(
+                tf.concat([step.o1, self.preprocess_action(A_sampled1)], axis=1))
             log_pi_sampled1 = self.policy_parameters_to_log_prob(A_sampled1, parameters)
             log_pi_sampled1 *= self.entropy_scale  # type: tf.Tensor
             V_loss = tf.reduce_mean(0.5 * tf.square(v1 - (q1 - log_pi_sampled1)))
 
-        V_norm = update(self.v1_network, V_loss, tape)
-
-        with tf.GradientTape() as tape:
             # constructing Q loss
             v2 = self.v2_network(step.o2)
             q1 = self.q_network(tf.concat([step.o1, self.preprocess_action(step.a)],
@@ -132,6 +125,8 @@ class AbstractAgent:
             td_error = step.r + gamma * not_done * v2 - q1
             Q_loss = tf.reduce_mean(0.5 * td_error ** 2)
 
+        pi_norm = update(self.pi_network, pi_loss, tape)
+        V_norm = update(self.v1_network, V_loss, tape)
         Q_norm = update(self.q_network, Q_loss, tape)
 
         for var1, var2 in zip(self.v1_network.variables, self.v2_network.variables):

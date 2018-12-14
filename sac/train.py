@@ -169,8 +169,9 @@ class Trainer:
             self.add_to_buffer(Step(o1=o1, a=a, r=r, o2=o2, t=t))
             o1 = o2
             # noinspection PyTypeChecker
+            fps = 1 / float(time.time() - tick)
             episode_mean.update(
-                Counter(fps=1 / float(time.time() - tick), **info.get('log mean', {})))
+                Counter(fps=fps, **info.get('log mean', {})))
             # noinspection PyTypeChecker
             episode_count.update(
                 Counter(reward=r, time_steps=1, **info.get('log count', {})))
