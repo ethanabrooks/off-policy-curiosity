@@ -124,7 +124,7 @@ class AbstractAgent:
 
     def train_step(self, step: Step) -> dict:
         step = Step(*[tf.convert_to_tensor(x, dtype=tf.float32) for x in step])
-        return self._train_stap(step)
+        return {k: v.numpy() for k, v in self._train_stap(step).items()}
 
     @tf.contrib.eager.defun
     def _get_actions(self, o: tf.Tensor, sample: bool = True) -> np.array:
