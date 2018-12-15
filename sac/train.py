@@ -77,6 +77,10 @@ class Trainer:
               render: bool = False,
               save_threshold: int = None):
 
+        if logdir:
+            writer = summary.create_file_writer(str(logdir))
+            writer.set_as_default()
+
         # writer = None
         # if load_path:
         # raise NotImplementedError
