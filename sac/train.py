@@ -61,16 +61,14 @@ class Trainer:
                 self.preprocess_func = vectorize
         observation_space = spaces.Box(
             *[
-                self.preprocess_obs(
-                    get_space_attrs(env.observation_space, attr))
+                self.preprocess_obs(get_space_attrs(env.observation_space, attr))
                 for attr in ['low', 'high']
             ],
             dtype=np.float32)
 
         self.action_space = env.action_space
         self.agent = self.build_agent(
-            observation_space=observation_space,
-            action_space=self.action_space, **kwargs)
+            observation_space=observation_space, action_space=self.action_space, **kwargs)
         self.time_steps = tf.Variable(0, name='global_step', trainable=False)
 
     def train(self,
@@ -79,16 +77,16 @@ class Trainer:
               render: bool = False,
               save_threshold: int = None):
 
-        writer = None
-        if load_path:
-            raise NotImplementedError
-            # TODO
-            # saver.restore(self.sess, load_path)
-            # print("Model restored from", load_path)
-        if logdir:
-            # writer = tf.summary.FileWriter(str(logdir), self.sess.graph) TODO
-            config = projector.ProjectorConfig()
-            projector.visualize_embeddings(writer, config)
+        # writer = None
+        # if load_path:
+        # raise NotImplementedError
+        # # TODO
+        # saver.restore(self.sess, load_path)
+        # print("Model restored from", load_path)
+        # if logdir:
+        # writer = tf.summary.FileWriter(str(logdir), self.sess.graph) TODO
+        # config = projector.ProjectorConfig()
+        # projector.visualize_embeddings(writer, config)
 
         past_returns = deque(maxlen=save_threshold)
         best_average = -np.inf
@@ -158,8 +156,7 @@ class Trainer:
         episode_mean = Counter()
         tick = time.time()
         for time_steps in itertools.count(1):
-            a = self.agent.get_actions(self.preprocess_obs(o1),
-                                       sample=not eval_period)
+            a = self.agent.get_actions(self.preprocess_obs(o1), sample=not eval_period)
             o2, r, t, info = self.step(a, render)
             if 'print' in info:
                 print('Time step:', time_steps, info['print'])
@@ -170,8 +167,7 @@ class Trainer:
             o1 = o2
             # noinspection PyTypeChecker
             fps = 1 / float(time.time() - tick)
-            episode_mean.update(
-                Counter(fps=fps, **info.get('log mean', {})))
+            episode_mean.update(Counter(fps=fps, **info.get('log mean', {})))
             # noinspection PyTypeChecker
             episode_count.update(
                 Counter(reward=r, time_steps=1, **info.get('log count', {})))
@@ -196,9 +192,7 @@ class Trainer:
                     }))
         return counter
 
-    def build_agent(self,
-                    observation_space: gym.Space,
-                    action_space: gym.Space,
+    def build_agent(self, observation_space: gym.Space, action_space: gym.Space,
                     **kwargs) -> AbstractAgent:
         if isinstance(action_space, spaces.Discrete):
             policy_type = CategoricalPolicy
@@ -209,7 +203,8 @@ class Trainer:
             def __init__(self):
                 super(Agent, self).__init__(
                     o_size=observation_space.shape[0],
-                    a_size=space_to_size(action_space), **kwargs)
+                    a_size=space_to_size(action_space),
+                    **kwargs)
 
         return Agent()  # type: MLPAgent
 
