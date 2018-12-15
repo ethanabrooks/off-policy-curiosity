@@ -76,7 +76,7 @@ def cast_to_int(arg: str):
 
 
 HINDSIGHT_ENVS = {
-    HSREnv: HSRHindsightWrapper,
+    HSREnv:           HSRHindsightWrapper,
     MultiBlockHSREnv: MBHSRHindsightWrapper,
 }
 
@@ -171,7 +171,7 @@ def mutate_xml(changes: List[XMLSetter], dofs: List[str], goal_space: Box, n_blo
                         rgba=rgba[i],
                         condim='6',
                         solimp="0.99 0.99 "
-                        "0.01",
+                               "0.01",
                         solref='0.01 1'))
                 ET.SubElement(body, 'freejoint', attrib=dict(name=f'block{i}joint'))
 
@@ -237,6 +237,7 @@ def main(
         trainer_args,
         train_args,
         embed_args,
+        network_args,
 ):
     embed_args = {k.replace('embed_', ''): v for k, v in embed_args.items()}
     env_class = env
@@ -246,10 +247,13 @@ def main(
         trainer = HindsightTrainer(
             env=HINDSIGHT_ENVS[env_class](env=env),
             embed_args=embed_args,
+            network_args=network_args,
             **hindsight_args,
             **trainer_args)
     else:
-        trainer = Trainer(env=env, render=False, **trainer_args)
+        trainer = Trainer(env=env, render=False,
+                          network_args=network_args,
+                          **trainer_args)
     trainer.train(**train_args)
 
 
@@ -284,15 +288,18 @@ def add_hindsight_args(parser):
     parser.add_argument('--n-goals', type=int)
 
 
-def add_trainer_args(parser):
-    parser.add_argument('--seed', type=int, required=True)
+def add_network_args(parser):
     parser.add_argument(
         '--activation',
         type=parse_activation,
         default=tf.nn.relu,
         choices=ACTIVATIONS.values())
-    parser.add_argument('--n-layers', type=int, required=True)
+    parser.add_argument('--n-hidden', type=int, required=True)
     parser.add_argument('--layer-size', type=int, required=True)
+
+
+def add_trainer_args(parser):
+    parser.add_argument('--seed', type=int, required=True)
     parser.add_argument('--buffer-size', type=cast_to_int, required=True)
     parser.add_argument('--n-train-steps', type=int, required=True)
     parser.add_argument('--batch-size', type=int, required=True)
@@ -304,7 +311,7 @@ def add_trainer_args(parser):
 
 
 def add_embed_args(parser):
-    parser.add_argument('--embed-n-layers', type=int)
+    parser.add_argument('--embed-n-hidden', type=int)
     parser.add_argument('--embed-layer-size', type=int)
     parser.add_argument(
         '--embed-activation',
@@ -352,6 +359,7 @@ def cli():
     add_wrapper_args(parser=parser.add_argument_group('wrapper_args'))
     add_env_args(parser=parser.add_argument_group('env_args'))
     add_trainer_args(parser=parser.add_argument_group('trainer_args'))
+    add_network_args(parser=parser.add_argument_group('network_args'))
     add_train_args(parser=parser.add_argument_group('train_args'))
     add_hindsight_args(parser=parser.add_argument_group('hindsight_args'))
     add_embed_args(parser=parser.add_argument_group('embed_args'))

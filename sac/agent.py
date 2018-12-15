@@ -2,14 +2,14 @@
 import enum
 from abc import abstractmethod
 from collections import namedtuple
-from typing import Callable, Collection
+from typing import Callable
 
 # third party
 import numpy as np
 import tensorflow as tf
 
 # first party
-from sac.utils import ArrayLike, Step
+from sac.utils import ArrayLike, Step, make_network
 
 NetworkOutput = namedtuple('NetworkOutput', 'output state')
 
@@ -24,17 +24,6 @@ class ModelType(enum.Enum):
         return self.value
 
 
-def make_network(input_size: int, sizes: Collection[int], activation, use_bias=True) -> \
-        tf.keras.Sequential:
-    assert len(sizes) >= 1
-    return tf.keras.Sequential([
-        tf.layers.Dense(
-            input_shape=(in_size,),
-            units=out_size, activation=activation, use_bias=use_bias)
-        for in_size, out_size in zip([input_size] + sizes, sizes)
-    ])
-
-
 class AbstractAgent:
     def __init__(
             self,
@@ -42,11 +31,9 @@ class AbstractAgent:
             o_size: int,
             reward_scale: float,
             entropy_scale: float,
-            activation: Callable,
-            n_layers: int,
-            layer_size: int,
             learning_rate: float,
             grad_clip: float,
+            network_args: dict,
             embed_args: dict = None,
     ) -> None:
 
@@ -57,17 +44,10 @@ class AbstractAgent:
         self.entropy_scale = entropy_scale
         self.a_size = a_size
         self.reward_scale = reward_scale
-        self.activation = activation
 
-        def _make_network(input_size, last_layer) -> tf.keras.Sequential:
-            return make_network(input_size=input_size,
-                                sizes=[layer_size] * n_layers + [last_layer],
-                                activation=activation)
-
-        self.pi_network = _make_network(o_size, a_size)
-        self.q_network = _make_network(a_size + o_size, 1)
-        self.v1_network = _make_network(o_size, 1)
-        self.v2_network = _make_network(o_size, 1)
+        self.q_network = make_network(a_size + o_size, 1, **network_args)
+        self.v1_network = make_network(o_size, 1, **network_args)
+        self.v2_network = make_network(o_size, 1, **network_args)
 
         self.v2_network.set_weights(self.v1_network.get_weights())
         self.global_step = tf.Variable(0, name='global_step')
@@ -77,8 +57,7 @@ class AbstractAgent:
                 learning_rate=embed_args.pop('learning_rate', learning_rate))
 
     def get_parameters(self, o1):
-        processed_s = self.pi_network(o1)
-        return self.produce_policy_parameters(self.a_size, processed_s)
+        return self.get_policy_params(o1)
 
     def train_step(self, step: Step) -> dict:
         step = Step(*[tf.convert_to_tensor(x, dtype=tf.float32) for x in step])
@@ -104,6 +83,7 @@ class AbstractAgent:
             # constructing pi loss
             log_pi_sampled2 = self.policy_parameters_to_log_prob(A_sampled2, parameters)
             log_pi_sampled2 *= self.entropy_scale  # type: tf.Tensor
+
             q2 = self.q_network(
                 tf.concat([step.o1, self.preprocess_action(A_sampled2)], axis=1))
             v1 = self.v1_network(step.o1)
@@ -155,31 +135,34 @@ class AbstractAgent:
         return func(parameters).numpy().reshape(-1)
 
     @abstractmethod
-    def network(self, inputs: tf.Tensor) -> NetworkOutput:
+    def pi_network(self, inputs: tf.Tensor) -> NetworkOutput:
         pass
 
-    @abstractmethod
-    def produce_policy_parameters(self, a_shape: int,
-                                  processed_o: tf.Tensor) -> tf.Tensor:
+    def get_policy_params(self, obs: tf.Tensor) -> tf.Tensor:
         pass
 
+    @staticmethod
     @abstractmethod
-    def policy_parameters_to_log_prob(self, a: tf.Tensor,
+    def policy_parameters_to_log_prob(a: tf.Tensor,
                                       parameters: tf.Tensor) -> tf.Tensor:
         pass
 
+    @staticmethod
     @abstractmethod
-    def policy_parameters_to_sample(self, parameters: tf.Tensor) -> tf.Tensor:
+    def policy_parameters_to_sample(parameters: tf.Tensor) -> tf.Tensor:
         pass
 
+    @staticmethod
     @abstractmethod
-    def policy_parameters_to_max_likelihood_action(self, parameters) -> tf.Tensor:
+    def policy_parameters_to_max_likelihood_action(parameters) -> tf.Tensor:
         pass
 
+    @staticmethod
     @abstractmethod
-    def preprocess_action(self, action_sample: tf.Tensor) -> tf.Tensor:
+    def preprocess_action(action_sample: tf.Tensor) -> tf.Tensor:
         pass
 
+    @staticmethod
     @abstractmethod
-    def entropy_from_params(self, params: tf.Tensor) -> tf.Tensor:
+    def entropy_from_params(params: tf.Tensor) -> tf.Tensor:
         pass
