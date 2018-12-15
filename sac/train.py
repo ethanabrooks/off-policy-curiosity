@@ -69,7 +69,7 @@ class Trainer:
         self.action_space = env.action_space
         self.agent = self.build_agent(
             observation_space=observation_space, action_space=self.action_space, **kwargs)
-        self.time_steps = tf.Variable(0, name='global_step', trainable=False)
+        self.time_steps = tf.train.get_or_create_global_step()
 
     def train(self,
               load_path: Path,
@@ -122,14 +122,11 @@ class Trainer:
             #     self.sess, str(logdir.joinpath('embed', 'model.ckpt')))
             # print("embeddings saved in path:", embed_save_path)
             # saver.save(self.sess, str(save_path).replace('<episode>', str(episodes)))
-
-            time_steps = self.time_steps.numpy()
-            time_steps += self.episode_count['time_steps']
-            tf.assign(self.time_steps, time_steps)
+            self.time_steps.assign_add(self.episode_count['time_steps'])
 
             print_statement = f'({"EVAL" if self.is_eval_period() else "TRAIN"}) ' \
                               f'Episode: {episodes}\t ' \
-                              f'Time Steps: {time_steps}\t ' \
+                              f'Time Steps: {int(self.time_steps)}\t ' \
                               f'Reward: {episode_return}\t ' \
                               f'Success: {self.episode_count[SUCCESS_KWD]}'
             print(print_statement)
