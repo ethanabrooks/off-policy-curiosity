@@ -56,11 +56,8 @@ class AbstractAgent:
             self.embed_optimizer = tf.train.AdamOptimizer(
                 learning_rate=embed_args.pop('learning_rate', learning_rate))
 
-    def get_parameters(self, o1):
-        return self.get_policy_params(o1)
-
-    def train_step(self, step: Step) -> dict:
-        step = Step(*[tf.convert_to_tensor(x, dtype=tf.float32) for x in step])
+    @tf.contrib.eager.defun
+    def _train_stap(self, step: Step):
         gamma = tf.constant(0.99)
         tau = 0.01
 
@@ -76,7 +73,7 @@ class AbstractAgent:
             return norm
 
         with tf.GradientTape(persistent=True) as tape:
-            parameters = self.get_parameters(step.o1)
+            parameters = self.get_policy_params(step.o1)
             A_sampled1 = self.policy_parameters_to_sample(parameters)
             A_sampled2 = self.policy_parameters_to_sample(parameters)
 
@@ -125,14 +122,22 @@ class AbstractAgent:
             pi_grad=pi_norm,
         )
 
-    def get_actions(self, o: ArrayLike, sample: bool = True, state=None) -> np.array:
-        parameters = self.get_parameters(tf.convert_to_tensor(o.reshape(1, -1),
-                                                              dtype=tf.float32))
+    def train_step(self, step: Step) -> dict:
+        step = Step(*[tf.convert_to_tensor(x, dtype=tf.float32) for x in step])
+        return self._train_stap(step)
+
+    @tf.contrib.eager.defun
+    def _get_actions(self, o: tf.Tensor, sample: bool = True) -> np.array:
+        parameters = self.get_policy_params(o)
         if sample:
             func = self.policy_parameters_to_sample
         else:
             func = self.policy_parameters_to_max_likelihood_action
-        return func(parameters).numpy().reshape(-1)
+        return func(parameters)
+
+    def get_actions(self, o: ArrayLike, sample: bool = True) -> np.array:
+        o = tf.convert_to_tensor(o.reshape(1, -1), dtype=tf.float32)
+        return self._get_actions(o).numpy().reshape(-1)
 
     @abstractmethod
     def pi_network(self, inputs: tf.Tensor) -> NetworkOutput:
