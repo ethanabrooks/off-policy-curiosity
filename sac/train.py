@@ -188,7 +188,7 @@ class Trainer:
             for i in range(self.n_train_steps):
                 counter.update(
                     Counter({
-                        k.replace(' ', '_'): v / self.n_train_steps
+                        k.replace('_', ' '): v / self.n_train_steps
                         for k, v in self.train_step().items() if np.isscalar(v)
                     }))
         return counter
