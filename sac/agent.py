@@ -57,7 +57,7 @@ class AbstractAgent:
                 learning_rate=embed_args.pop('learning_rate', learning_rate))
 
     @tf.contrib.eager.defun
-    def _train_stap(self, step: Step):
+    def _train_step(self, step: Step):
         gamma = tf.constant(0.99)
         tau = 0.01
 
@@ -124,7 +124,7 @@ class AbstractAgent:
 
     def train_step(self, step: Step) -> dict:
         step = Step(*[tf.convert_to_tensor(x, dtype=tf.float32) for x in step])
-        return {k: v.numpy() for k, v in self._train_stap(step).items()}
+        return {k: v.numpy() for k, v in self._train_step(step).items()}
 
     @tf.contrib.eager.defun
     def _get_actions(self, o: tf.Tensor, sample: bool = True) -> np.array:
