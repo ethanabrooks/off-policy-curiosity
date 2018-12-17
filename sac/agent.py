@@ -53,6 +53,8 @@ class AbstractAgent:
         ]
 
         self.network_args = network_args
+        with tf.variable_scope('pi'):
+            self.pi_network = make_network(o_size, network_args['layer_size'], **network_args)
         self.embed_args = embed_args
         self.embed = bool(embed_args)
         self.grad_clip = grad_clip
@@ -179,10 +181,6 @@ class AbstractAgent:
     def get_actions(self, o: ArrayLike, sample: bool = True, state=None) -> NetworkOutput:
         A = self.A_sampled1 if sample else self.A_max_likelihood
         return NetworkOutput(output=self.sess.run(A, {self.O1: [o]})[0], state=0)
-
-    def pi_network(self, o: tf.Tensor) -> NetworkOutput:
-        with tf.variable_scope('pi'):
-            return self.network(o)
 
     def q_network(self, o: tf.Tensor, a: tf.Tensor, name: str,
                   reuse: bool = None) -> tf.Tensor:
