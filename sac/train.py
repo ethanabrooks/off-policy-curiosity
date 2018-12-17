@@ -15,6 +15,7 @@ import tensorflow as tf
 
 from environments.hindsight_wrapper import HindsightWrapper
 from sac.agent import AbstractAgent
+from sac.networks import MlpAgent
 from sac.policies import CategoricalPolicy, GaussianPolicy
 from sac.replay_buffer import ReplayBuffer
 from sac.utils import Obs, Shape, Step, create_sess, get_space_attrs, space_to_size, unwrap_env, vectorize
@@ -32,7 +33,6 @@ class Trainer:
                  buffer_size: int,
                  batch_size: int,
                  n_train_steps: int,
-                 debug: bool,
                  sess: tf.Session = None,
                  preprocess_func=None,
                  action_space=None,
@@ -50,7 +50,7 @@ class Trainer:
         self.batch_size = batch_size
         self.env = env
         self.buffer = ReplayBuffer(buffer_size)
-        self.sess = sess or create_sess(debug=debug)
+        self.sess = sess or create_sess()
         self.action_space = action_space or env.action_space
         observation_space = observation_space or env.observation_space
 
@@ -73,7 +73,6 @@ class Trainer:
         self.agents = Agents(
             act=self.build_agent(
                 sess=self.sess,
-                reuse=False,
                 action_space=action_space,
                 observation_space=observation_space,
                 **kwargs),
@@ -98,7 +97,6 @@ class Trainer:
         # self.train(load_path, logdir, render, save_path)
 
     def train(self,
-              save_path: Path,
               load_path: Path,
               logdir: Path,
               render: bool = False,
@@ -109,7 +107,7 @@ class Trainer:
             saver.restore(self.sess, load_path)
             print("Model restored from", load_path)
         if logdir:
-            tb_writer = tf.summary.FileWriter(logdir=logdir, graph=self.sess.graph)
+            tb_writer = tf.summary.FileWriter(logdir=str(logdir), graph=self.sess.graph)
 
         past_returns = deque(maxlen=save_threshold)
         best_average = -np.inf
@@ -133,9 +131,10 @@ class Trainer:
                 else:
                     best_average = new_average
 
-            if save_path and episodes % 10 == 1 and passes_save_threshold:
-                print("model saved in path:", saver.save(self.sess, save_path=save_path))
-                saver.save(self.sess, str(save_path).replace('<episode>', str(episodes)))
+            if logdir and episodes % 10 == 1 and passes_save_threshold:
+                print("model saved in path:", saver.save(self.sess, save_path=str(
+                    logdir)))
+                saver.save(self.sess, str(logdir).replace('<episode>', str(episodes)))
 
             time_steps, _ = self.sess.run(
                 [self.global_step, self.increment_global_step],
@@ -174,7 +173,7 @@ class Trainer:
         episode_count = Counter()
         episode_mean = Counter()
         tick = time.time()
-        s = self.agents.act.initial_state
+        s = 0
         for time_steps in itertools.count(1):
             a, s = self.get_actions(o1, s, sample=not eval_period)
             o2, r, t, info = self.step(a, render)
@@ -218,7 +217,6 @@ class Trainer:
         return self.agents.act.get_actions(o=obs, state=s, sample=sample)
 
     def build_agent(self,
-                    base_agent: AbstractAgent,
                     observation_space: gym.Space,
                     action_space: gym.Space = None,
                     **kwargs) -> AbstractAgent:
@@ -230,11 +228,11 @@ class Trainer:
         else:
             policy_type = GaussianPolicy
 
-        class Agent(policy_type, base_agent):
+        class Agent(policy_type, MlpAgent):
             def __init__(self):
                 super(Agent, self).__init__(
-                    o_shape=observation_space.shape,
-                    a_shape=[space_to_size(action_space)],
+                    o_size=observation_space.shape[0],
+                    a_size=space_to_size(action_space),
                     **kwargs)
 
         agent = Agent()  # type: AbstractAgent

@@ -11,8 +11,8 @@ from sac.agent import AbstractAgent, NetworkOutput
 from sac.utils import ArrayLike, Step
 
 
-def mlp(inputs, layer_size, n_layers, activation):
-    for i in range(n_layers):
+def mlp(inputs, layer_size, n_hidden, activation):
+    for i in range(n_hidden):
         inputs = tf.layers.dense(inputs, layer_size, activation, name='fc' + str(i))
     return inputs
 
@@ -25,18 +25,12 @@ class MlpAgent(AbstractAgent):
     def network(self, inputs: tf.Tensor) -> NetworkOutput:
         return NetworkOutput(
             output=mlp(
-                inputs=inputs,
-                layer_size=self.layer_size,
-                n_layers=self.n_layers,
-                activation=self.activation),
+                inputs=inputs, **self.network_args),
             state=None)
 
     def goal_network(self, inputs: tf.Tensor):
         return mlp(
-            inputs=inputs,
-            layer_size=self.goal_layer_size,
-            n_layers=self.goal_n_layers,
-            activation=self.goal_activation)
+            inputs=inputs, **self.network_args)
 
 
 class SACXAgent(AbstractAgent):

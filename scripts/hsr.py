@@ -231,32 +231,28 @@ def mutate_xml(changes: List[XMLSetter], dofs: List[str], goal_space: Box, n_blo
 @env_wrapper
 def main(
         env,
-        episodes_per_goal,
         max_steps,
         env_args,
         hindsight_args,
         trainer_args,
         train_args,
+        embed_args,
+        network_args,
 ):
+    embed_args = {k.replace('embed_', ''): v for k, v in embed_args.items()}
     env_class = env
-    unsupervised = any([
-        episodes_per_goal,
-    ])
     env = TimeLimit(max_episode_steps=max_steps, env=env_class(**env_args))
 
-    trainer_args['base_agent'] = MlpAgent
-
-    if unsupervised:
-        trainer = UnsupervisedTrainer(
-            env=env,
-            episodes_per_goal=episodes_per_goal,
-            **trainer_args,
-        )
-    elif hindsight_args:
+    if hindsight_args:
         trainer = HindsightTrainer(
-            env=HINDSIGHT_ENVS[env_class](env=env), **hindsight_args, **trainer_args)
+            env=HINDSIGHT_ENVS[env_class](env=env),
+            embed_args=embed_args,
+            network_args=network_args,
+            **hindsight_args,
+            **trainer_args)
     else:
-        trainer = Trainer(env=env, render=False, **trainer_args)
+        trainer = Trainer(
+            env=env, render=False, network_args=network_args, **trainer_args)
     trainer.train(**train_args)
 
 
@@ -282,9 +278,8 @@ def parse_groups(parser: argparse.ArgumentParser):
 
 
 def add_train_args(parser):
-    parser.add_argument('--logdir', type=str, default=None)
+    parser.add_argument('--logdir', type=Path, default=None)
     parser.add_argument('--load-path', type=str, default=None)
-    parser.add_argument('--save-path', type=str, default=None)
     parser.add_argument('--save-threshold', type=int, default=None)
 
 
@@ -292,23 +287,18 @@ def add_hindsight_args(parser):
     parser.add_argument('--n-goals', type=int)
 
 
-def add_trainer_args(parser):
-    parser.add_argument('--seed', type=int, required=True)
+def add_network_args(parser):
     parser.add_argument(
         '--activation',
         type=parse_activation,
         default=tf.nn.relu,
         choices=ACTIVATIONS.values())
-    parser.add_argument('--n-layers', type=int, required=True)
+    parser.add_argument('--n-hidden', type=int, required=True)
     parser.add_argument('--layer-size', type=int, required=True)
-    parser.add_argument(
-        '--goal-activation',
-        type=parse_activation,
-        default=tf.nn.relu,
-        choices=ACTIVATIONS.values())
-    parser.add_argument('--goal-n-layers', type=int)
-    parser.add_argument('--goal-layer-size', type=int)
-    parser.add_argument('--goal-learning-rate', type=float)
+
+
+def add_trainer_args(parser):
+    parser.add_argument('--seed', type=int, required=True)
     parser.add_argument('--buffer-size', type=cast_to_int, required=True)
     parser.add_argument('--n-train-steps', type=int, required=True)
     parser.add_argument('--batch-size', type=int, required=True)
@@ -317,7 +307,17 @@ def add_trainer_args(parser):
     scales.add_argument('--entropy-scale', type=float, default=1)
     parser.add_argument('--learning-rate', type=float, required=True)
     parser.add_argument('--grad-clip', type=float, required=True)
-    parser.add_argument('--debug', action='store_true')
+
+
+def add_embed_args(parser):
+    parser.add_argument('--embed-n-hidden', type=int)
+    parser.add_argument('--embed-layer-size', type=int)
+    parser.add_argument(
+        '--embed-activation',
+        type=parse_activation,
+        default=tf.nn.relu,
+        choices=ACTIVATIONS.values())
+    parser.add_argument('--embed-learning-rate', type=float)
 
 
 def add_env_args(parser):
@@ -354,15 +354,14 @@ def cli():
         choices=ENVIRONMENTS.values(),
         type=lambda k: ENVIRONMENTS[k],
         default=HSREnv)
-    parser.add_argument('--episodes-per-goal', type=int, default=None)
     parser.add_argument('--max-steps', type=int, required=True)
-
     add_wrapper_args(parser=parser.add_argument_group('wrapper_args'))
     add_env_args(parser=parser.add_argument_group('env_args'))
     add_trainer_args(parser=parser.add_argument_group('trainer_args'))
+    add_network_args(parser=parser.add_argument_group('network_args'))
     add_train_args(parser=parser.add_argument_group('train_args'))
     add_hindsight_args(parser=parser.add_argument_group('hindsight_args'))
-
+    add_embed_args(parser=parser.add_argument_group('embed_args'))
     main(**(parse_groups(parser)))
 
 

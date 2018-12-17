@@ -25,26 +25,18 @@ class ModelType(enum.Enum):
 
 
 class AbstractAgent:
-    def __init__(self,
-                 sess: tf.Session,
-                 o_shape: Iterable,
-                 a_shape: Sequence,
-                 reward_scale: float,
-                 entropy_scale: float,
-                 activation: Callable,
-                 n_layers: int,
-                 layer_size: int,
-                 learning_rate: float,
-                 grad_clip: float,
-                 device_num: int = 1,
-                 goal_activation: Callable = None,
-                 goal_n_layers: int = None,
-                 goal_layer_size: int = None,
-                 reuse: bool = False,
-                 scope: str = 'agent',
-                 goal_learning_rate: float = None,
-                 size_goal=3) -> None:
-
+    def __init__(
+            self,
+            sess,
+            a_size: int,
+            o_size: int,
+            reward_scale: float,
+            entropy_scale: float,
+            learning_rate: float,
+            grad_clip: float,
+            network_args: dict,
+            embed_args: dict = None,
+    ) -> None:
         self.default_train_values = [
             'entropy',
             'soft_update_xi_bar',
@@ -59,155 +51,114 @@ class AbstractAgent:
             'train_Q',
             'train_pi',
         ]
+
+        self.network_args = network_args
+        self.embed_args = embed_args
+        self.embed = bool(embed_args)
+        self.grad_clip = grad_clip
+        self.learning_rate = learning_rate
+        self.entropy_scale = entropy_scale
+        self.a_size = a_size
         self.reward_scale = reward_scale
-        self.activation = activation
-        self.n_layers = n_layers
-        self.layer_size = layer_size
-        self.initial_state = None
         self.sess = sess
 
-        self.goal_n_layers = goal_n_layers or n_layers
-        self.goal_layer_size = goal_layer_size or layer_size
-        self.goal_activation = goal_activation or activation
-        goal_learning_rate = goal_learning_rate or learning_rate
+        self.global_step = tf.Variable(0, name='global_step')
 
-        with tf.device('/gpu:' + str(device_num)), tf.variable_scope(scope, reuse=reuse):
-            self.global_step = tf.Variable(0, name='global_step')
+        self.O1 = tf.placeholder(tf.float32, [None, o_size], name='O1')
+        self.O2 = tf.placeholder(tf.float32, [None, o_size], name='O2')
+        self.A = A = tf.placeholder(tf.float32, [None, a_size], name='A')
+        self.R = R = tf.placeholder(tf.float32, [None], name='R')
+        self.T = T = tf.placeholder(tf.float32, [None], name='T')
+        gamma = tf.constant(0.99)
+        tau = 0.01
 
-            self.O1 = tf.placeholder(tf.float32, [None] + list(o_shape), name='O1')
-            self.O2 = tf.placeholder(tf.float32, [None] + list(o_shape), name='O2')
-            self.A = A = tf.placeholder(tf.float32, [None] + list(a_shape), name='A')
-            self.R = R = tf.placeholder(tf.float32, [None], name='R')
-            self.T = T = tf.placeholder(tf.float32, [None], name='T')
-            gamma = tf.constant(0.99)
-            tau = 0.01
+        processed_s, self.S_new = self.pi_network(self.O1)
+        parameters = self.parameters = self.produce_policy_parameters(
+            a_size, processed_s)
 
-            processed_s, self.S_new = self.pi_network(self.O1)
-            parameters = self.parameters = self.produce_policy_parameters(
-                a_shape[0], processed_s)
+        def pi_network_log_prob(a: tf.Tensor, name: str, _reuse: bool) \
+                -> tf.Tensor:
+            with tf.variable_scope(name, reuse=_reuse):
+                return self.policy_parameters_to_log_prob(a, parameters)
 
-            def pi_network_log_prob(a: tf.Tensor, name: str, _reuse: bool) \
-                    -> tf.Tensor:
-                with tf.variable_scope(name, reuse=_reuse):
-                    return self.policy_parameters_to_log_prob(a, parameters)
+        def sample_pi_network(name: str, _reuse: bool) -> tf.Tensor:
+            with tf.variable_scope(name, reuse=_reuse):
+                return self.policy_parameters_to_sample(parameters)
 
-            def sample_pi_network(name: str, _reuse: bool) -> tf.Tensor:
-                with tf.variable_scope(name, reuse=_reuse):
-                    return self.policy_parameters_to_sample(parameters)
+        # generate actions:
+        self.A_max_likelihood = tf.stop_gradient(
+            self.policy_parameters_to_max_likelihood_action(parameters))
+        self.A_sampled1 = A_sampled1 = tf.stop_gradient(
+            sample_pi_network('pi', _reuse=True))
 
-            # generate actions:
-            self.A_max_likelihood = tf.stop_gradient(
-                self.policy_parameters_to_max_likelihood_action(parameters))
-            self.A_sampled1 = A_sampled1 = tf.stop_gradient(
-                sample_pi_network('pi', _reuse=True))
+        # constructing V loss
+        v1 = self.v_network(self.O1, 'V')
+        self.v1 = v1
+        q1 = self.q_network(self.O1, self.transform_action_sample(A_sampled1), 'Q')
+        log_pi_sampled1 = pi_network_log_prob(A_sampled1, 'pi', _reuse=True)
+        log_pi_sampled1 *= entropy_scale  # type: tf.Tensor
+        self.V_loss = V_loss = tf.reduce_mean(
+            0.5 * tf.square(v1 - (q1 - log_pi_sampled1)))
 
-            # constructing V loss
-            v1 = self.v_network(self.O1, 'V')
-            self.v1 = v1
-            q1 = self.q_network(self.O1, self.transform_action_sample(A_sampled1), 'Q')
-            log_pi_sampled1 = pi_network_log_prob(A_sampled1, 'pi', _reuse=True)
-            log_pi_sampled1 *= entropy_scale  # type: tf.Tensor
-            self.V_loss = V_loss = tf.reduce_mean(
-                0.5 * tf.square(v1 - (q1 - log_pi_sampled1)))
+        # constructing Q loss
+        self.v2 = v2 = self.v_network(self.O2, 'V_bar')
+        self.q1 = q = self.q_network(
+            self.O1, self.transform_action_sample(A), 'Q', reuse=True)
+        not_done = 1 - T  # type: tf.Tensor
+        self.q_target = q_target = R + gamma * not_done * v2
+        self.Q_error = tf.square(q - q_target)
+        self.Q_loss = Q_loss = tf.reduce_mean(0.5 * self.Q_error)
 
-            # constructing Q loss
-            self.v2 = v2 = self.v_network(self.O2, 'V_bar')
-            self.q1 = q = self.q_network(
-                self.O1, self.transform_action_sample(A), 'Q', reuse=True)
-            not_done = 1 - T  # type: tf.Tensor
-            self.q_target = q_target = R + gamma * not_done * v2
-            self.Q_error = tf.square(q - q_target)
-            self.Q_loss = Q_loss = tf.reduce_mean(0.5 * self.Q_error)
+        # constructing pi loss
+        self.A_sampled2 = A_sampled2 = tf.stop_gradient(
+            sample_pi_network('pi', _reuse=True))
+        q2 = self.q_network(
+            self.O1, self.transform_action_sample(A_sampled2), 'Q', reuse=True)
+        log_pi_sampled2 = pi_network_log_prob(A_sampled2, 'pi', _reuse=True)
+        log_pi_sampled2 *= entropy_scale  # type: tf.Tensor
+        self.pi_loss = pi_loss = tf.reduce_mean(
+            log_pi_sampled2 * tf.stop_gradient(log_pi_sampled2 - q2 + v1))
 
-            # constructing pi loss
-            self.A_sampled2 = A_sampled2 = tf.stop_gradient(
-                sample_pi_network('pi', _reuse=True))
-            q2 = self.q_network(
-                self.O1, self.transform_action_sample(A_sampled2), 'Q', reuse=True)
-            log_pi_sampled2 = pi_network_log_prob(A_sampled2, 'pi', _reuse=True)
-            log_pi_sampled2 *= entropy_scale  # type: tf.Tensor
-            self.pi_loss = pi_loss = tf.reduce_mean(
-                log_pi_sampled2 * tf.stop_gradient(log_pi_sampled2 - q2 + v1))
+        # grabbing all the relevant variables
+        def get_variables(var_name: str) -> List[tf.Variable]:
+            return tf.get_collection(
+                tf.GraphKeys.TRAINABLE_VARIABLES, scope=f'{var_name}/')
 
-            # grabbing all the relevant variables
-            def get_variables(var_name: str) -> List[tf.Variable]:
-                return tf.get_collection(
-                    tf.GraphKeys.TRAINABLE_VARIABLES, scope=f'{scope}/{var_name}/')
+        phi, theta, xi, xi_bar = map(get_variables, ['pi', 'Q', 'V', 'V_bar'])
 
-            phi, theta, xi, xi_bar = map(get_variables, ['pi', 'Q', 'V', 'V_bar'])
+        def train_op(loss, var_list, lr=learning_rate):
+            optimizer = tf.train.AdamOptimizer(learning_rate=lr)
+            gradients, variables = zip(
+                *optimizer.compute_gradients(loss, var_list=var_list))
+            if grad_clip:
+                gradients, norm = tf.clip_by_global_norm(gradients, grad_clip)
+            else:
+                norm = tf.global_norm(gradients)
+            op = optimizer.apply_gradients(
+                zip(gradients, variables), global_step=self.global_step)
+            return op, norm
 
-            def train_op(loss, var_list, lr=learning_rate):
-                optimizer = tf.train.AdamOptimizer(learning_rate=lr)
-                gradients, variables = zip(
-                    *optimizer.compute_gradients(loss, var_list=var_list))
-                if grad_clip:
-                    gradients, norm = tf.clip_by_global_norm(gradients, grad_clip)
-                else:
-                    norm = tf.global_norm(gradients)
-                op = optimizer.apply_gradients(
-                    zip(gradients, variables), global_step=self.global_step)
-                return op, norm
+        self.train_V, self.V_grad = train_op(loss=V_loss, var_list=xi)
+        self.train_Q, self.Q_grad = train_op(loss=Q_loss, var_list=theta)
+        self.train_pi, self.pi_grad = train_op(loss=pi_loss, var_list=phi)
 
-            self.train_V, self.V_grad = train_op(loss=V_loss, var_list=xi)
-            self.train_Q, self.Q_grad = train_op(loss=Q_loss, var_list=theta)
-            self.train_pi, self.pi_grad = train_op(loss=pi_loss, var_list=phi)
+        # placeholders
+        soft_update_xi_bar_ops = [
+            tf.assign(xbar, tau * x + (1 - tau) * xbar)
+            for (xbar, x) in zip(xi_bar, xi)
+        ]
+        self.soft_update_xi_bar = tf.group(*soft_update_xi_bar_ops)
+        self.check = tf.add_check_numerics_ops()
+        self.entropy = tf.reduce_mean(self.entropy_from_params(self.parameters))
+        # ensure that xi and xi_bar are the same at initialization
 
-            # placeholders
-            self.old_goal = tf.placeholder(tf.float32, [size_goal], name='old_goal')
-            self.old_initial_obs = tf.placeholder(
-                tf.float32, o_shape, name='old_initial_obs')
-            self.new_initial_obs = tf.placeholder(
-                tf.float32, o_shape, name='new_initial_obs')
-            self.goal_reward = tf.placeholder(tf.float32, (), name='goal_reward')
-            old_goal = tf.expand_dims(self.old_goal, axis=0)
-            old_initial_obs = tf.expand_dims(self.old_initial_obs, axis=0)
-            new_initial_obs = tf.expand_dims(self.new_initial_obs, axis=0)
+        sess.run(tf.global_variables_initializer())
 
-            def produce_goal_params(initial_obs, _reuse):
-                with tf.variable_scope('goal', reuse=_reuse):
-                    return self.produce_policy_parameters(size_goal,
-                                                          self.goal_network(initial_obs))
+        # ensure that xi and xi_bar are the same at initialization
+        hard_update_xi_bar_ops = [tf.assign(xbar, x) for (xbar, x) in zip(xi_bar, xi)]
 
-            # train
-            old_params = produce_goal_params(old_initial_obs, _reuse=False)
-            goal_log_prob = self.policy_parameters_to_log_prob(old_goal, old_params)
-            optimizer = tf.train.AdamOptimizer(learning_rate=goal_learning_rate)
-            # with tf.variable_scope('baseline'):
-            # baseline = tf.squeeze(tf.layers.dense(old_initial_obs, 1))
-            # self.baseline_loss = tf.reduce_mean(.5 * tf.square(baseline - self.goal_reward))
-
-            self.goal_loss = tf.reduce_mean(
-                -goal_log_prob * tf.stop_gradient(self.goal_reward))
-
-            goal_variables = get_variables('goal')
-            self.goal_grad, _ = zip(
-                *optimizer.compute_gradients(self.goal_loss, var_list=goal_variables))
-
-            self.train_goal = tf.group(
-                optimizer.minimize(self.goal_loss, var_list=goal_variables), )
-            # optimizer.minimize(self.baseline_loss))
-
-            # infer
-            new_params = produce_goal_params(new_initial_obs, _reuse=True)
-            new_goal = self.policy_parameters_to_sample(new_params)
-            self.new_goal = tf.squeeze(new_goal, axis=0)
-
-            soft_update_xi_bar_ops = [
-                tf.assign(xbar, tau * x + (1 - tau) * xbar)
-                for (xbar, x) in zip(xi_bar, xi)
-            ]
-            self.soft_update_xi_bar = tf.group(*soft_update_xi_bar_ops)
-            self.check = tf.add_check_numerics_ops()
-            self.entropy = tf.reduce_mean(self.entropy_from_params(self.parameters))
-            # ensure that xi and xi_bar are the same at initialization
-
-            sess.run(tf.global_variables_initializer())
-
-            # ensure that xi and xi_bar are the same at initialization
-            hard_update_xi_bar_ops = [tf.assign(xbar, x) for (xbar, x) in zip(xi_bar, xi)]
-
-            hard_update_xi_bar = tf.group(*hard_update_xi_bar_ops)
-            sess.run(hard_update_xi_bar)
+        hard_update_xi_bar = tf.group(*hard_update_xi_bar_ops)
+        sess.run(hard_update_xi_bar)
 
     @property
     def seq_len(self):
@@ -216,10 +167,10 @@ class AbstractAgent:
     def train_step(self, step: Step) -> dict:
         feed_dict = {
             self.O1: step.o1,
-            self.A: step.a,
-            self.R: np.array(step.r) * self.reward_scale,
+            self.A:  step.a,
+            self.R:  np.array(step.r) * self.reward_scale,
             self.O2: step.o2,
-            self.T: step.t,
+            self.T:  step.t,
         }
         return self.sess.run(
             {attr: getattr(self, attr)
@@ -257,10 +208,10 @@ class AbstractAgent:
             self.Q_error,
             feed_dict={
                 self.O1: step.o1,
-                self.A: step.a,
-                self.R: step.r,
+                self.A:  step.a,
+                self.R:  step.r,
                 self.O2: step.o2,
-                self.T: step.t
+                self.T:  step.t
             })
 
     def _print(self, tensor, name: str):
