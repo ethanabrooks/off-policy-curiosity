@@ -2,9 +2,9 @@
 from collections import Counter, namedtuple
 
 # third party
-import numpy as np
 # first party
 from gym.spaces import Box
+import numpy as np
 
 from environments.hsr import HSREnv, distance_between
 from sac.replay_buffer import ReplayBuffer
@@ -127,8 +127,10 @@ class UnsupervisedTrainer(Trainer):
             })
             additional_results = dict(goal_reward=goal_reward)
 
-        train_result = {**self.sess.run(fetches=fetches, feed_dict=feed_dict),
-                        **additional_results}
+        train_result = {
+            **self.sess.run(fetches=fetches, feed_dict=feed_dict),
+            **additional_results
+        }
         self.prev_goal = train_result['goal']
         self.prev_obs = o1
         return train_result
@@ -148,7 +150,8 @@ class UnsupervisedTrainer(Trainer):
         elif len(self.return_history) == self.episodes_per_goal:
             _, return_delta = self.lin_regress_op @ np.array(self.return_history)
 
-            reinforce_result = self.reinforce(self.initial_obs, goal_reward=np.abs(return_delta))
+            reinforce_result = self.reinforce(
+                self.initial_obs, goal_reward=np.abs(return_delta))
             episode_count.update(reinforce_result)
             goal = reinforce_result['goal']
             print('goal', goal)

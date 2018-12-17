@@ -154,8 +154,10 @@ class AbstractAgent:
 
             # placeholders
             self.old_goal = tf.placeholder(tf.float32, [size_goal], name='old_goal')
-            self.old_initial_obs = tf.placeholder(tf.float32, o_shape, name='old_initial_obs')
-            self.new_initial_obs = tf.placeholder(tf.float32, o_shape, name='new_initial_obs')
+            self.old_initial_obs = tf.placeholder(
+                tf.float32, o_shape, name='old_initial_obs')
+            self.new_initial_obs = tf.placeholder(
+                tf.float32, o_shape, name='new_initial_obs')
             self.goal_reward = tf.placeholder(tf.float32, (), name='goal_reward')
             old_goal = tf.expand_dims(self.old_goal, axis=0)
             old_initial_obs = tf.expand_dims(self.old_initial_obs, axis=0)

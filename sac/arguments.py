@@ -1,17 +1,17 @@
 import argparse
-import re
-import tempfile
 from collections.__init__ import namedtuple
 from contextlib import contextmanager
 from itertools import filterfalse
 from pathlib import Path
-from typing import Tuple, List
+import re
+import tempfile
+from typing import List, Tuple
 from xml.etree import ElementTree as ET
 
-import numpy as np
-import tensorflow as tf
 from gym import spaces
 from gym.spaces import Box
+import numpy as np
+import tensorflow as tf
 
 from sac.utils import parametric_relu
 

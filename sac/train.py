@@ -6,20 +6,18 @@ import time
 from typing import Optional, Tuple
 
 # third party
+# first party
 import gym
 from gym import Wrapper, spaces
+from gym.wrappers import TimeLimit
 import numpy as np
 import tensorflow as tf
-
-# first party
-from gym.wrappers import TimeLimit
 
 from environments.hindsight_wrapper import HindsightWrapper
 from sac.agent import AbstractAgent
 from sac.policies import CategoricalPolicy, GaussianPolicy
 from sac.replay_buffer import ReplayBuffer
-from sac.utils import Obs, Shape, Step, create_sess, get_space_attrs, unwrap_env, \
-    vectorize, space_to_size
+from sac.utils import Obs, Shape, Step, create_sess, get_space_attrs, space_to_size, unwrap_env, vectorize
 
 Agents = namedtuple('Agents', 'train act')
 

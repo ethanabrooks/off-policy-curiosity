@@ -1,6 +1,6 @@
 # stdlib
 from collections import namedtuple
-from typing import Any, Callable, Sequence, Union, Iterable
+from typing import Any, Callable, Iterable, Sequence, Union
 
 # third party
 import gym
@@ -122,8 +122,10 @@ def get_space_attrs(space: gym.Space, attr: str):
         return [get_space_attrs(s, attr) for s in space.spaces]
     raise RuntimeError(f'{space} does not have attribute {attr}.')
 
+
 def get_env_attr(env: gym.Env, attr: str):
     return getattr(unwrap_env(env, lambda e: hasattr(e, attr)), attr)
+
 
 def unwrap_env(env: gym.Env, condition: Callable[[gym.Env], bool]):
     while not condition(env):
