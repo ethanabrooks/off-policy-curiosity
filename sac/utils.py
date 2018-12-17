@@ -268,3 +268,24 @@ def space_to_size(space: gym.Space):
         return sum(space_to_size(s) for s in _spaces)
     else:
         return space.shape[0]
+
+
+def mlp(inputs, layer_size, n_layers, activation):
+    for i in range(n_layers):
+        inputs = tf.layers.dense(inputs, layer_size, activation, name='fc' + str(i))
+    return inputs
+
+
+def make_network(input_size: int,  output_size: int, n_hidden: int, layer_size: int,
+                 activation, use_bias=True) \
+        -> \
+                tf.keras.Sequential:
+    sizes = [layer_size] * n_hidden
+    return tf.keras.Sequential([
+        tf.layers.Dense(
+            input_shape=(in_size, ),
+            units=out_size,
+            activation=activation,
+            use_bias=use_bias)
+        for in_size, out_size in zip([input_size] + sizes, sizes + [output_size])
+    ])

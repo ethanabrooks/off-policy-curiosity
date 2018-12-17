@@ -22,15 +22,11 @@ class MlpAgent(AbstractAgent):
     def seq_len(self):
         return None
 
-    def network(self, inputs: tf.Tensor) -> NetworkOutput:
-        return NetworkOutput(
-            output=mlp(
-                inputs=inputs, **self.network_args),
-            state=None)
+    def network(self, inputs: tf.Tensor):
+        return mlp(inputs=inputs, **self.network_args)
 
     def goal_network(self, inputs: tf.Tensor):
-        return mlp(
-            inputs=inputs, **self.network_args)
+        return mlp(inputs=inputs, **self.network_args)
 
 
 class SACXAgent(AbstractAgent):

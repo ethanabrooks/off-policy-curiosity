@@ -9,7 +9,7 @@ import numpy as np
 import tensorflow as tf
 
 # first party
-from sac.utils import ArrayLike, Step
+from sac.utils import ArrayLike, Step, make_network
 
 NetworkOutput = namedtuple('NetworkOutput', 'output state')
 
@@ -72,7 +72,7 @@ class AbstractAgent:
         gamma = tf.constant(0.99)
         tau = 0.01
 
-        processed_s, self.S_new = self.pi_network(self.O1)
+        processed_s = self.pi_network(self.O1)
         parameters = self.parameters = self.produce_policy_parameters(
             a_size, processed_s)
 
@@ -188,11 +188,11 @@ class AbstractAgent:
                   reuse: bool = None) -> tf.Tensor:
         with tf.variable_scope(name, reuse=reuse):
             oa = tf.concat([o, a], axis=1)
-            return tf.reshape(tf.layers.dense(self.network(oa).output, 1, name='q'), [-1])
+            return tf.reshape(tf.layers.dense(self.network(oa), 1, name='q'), [-1])
 
     def v_network(self, o: tf.Tensor, name: str, reuse: bool = None) -> tf.Tensor:
         with tf.variable_scope(name, reuse=reuse):
-            return tf.reshape(tf.layers.dense(self.network(o).output, 1, name='v'), [-1])
+            return tf.reshape(tf.layers.dense(self.network(o), 1, name='v'), [-1])
 
     def get_v1(self, o1: np.ndarray):
         return self.sess.run(self.v1, feed_dict={self.O1: [o1]})[0]
