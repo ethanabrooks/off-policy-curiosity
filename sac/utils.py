@@ -284,10 +284,12 @@ def make_network(input_size: int, output_size: int, n_hidden: int, layer_size: i
     activations = [activation] * n_hidden + [None]
     return tf.keras.Sequential([
         tf.layers.Dense(
-            input_shape=(in_size,),
+            input_shape=(in_size, ),
             units=out_size,
             activation=activation,
-            use_bias=use_bias)
-        for in_size, out_size, activation in zip([input_size] + sizes, sizes + [
-            output_size], activations)
+            use_bias=use_bias) for in_size, out_size, activation in zip(
+                [input_size] + sizes,
+                sizes + [output_size],
+                activations,
+            )
     ])

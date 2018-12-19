@@ -20,9 +20,7 @@ import tensorflow as tf
 # first party
 from environments.hindsight_wrapper import HSRHindsightWrapper, MBHSRHindsightWrapper
 from environments.hsr import HSREnv, MoveGripperEnv, MultiBlockHSREnv, get_xml_filepath
-from sac.networks import MlpAgent
 from sac.train import HindsightTrainer, Trainer
-from sac.unsupervised_trainer import UnsupervisedTrainer
 
 
 def parametric_relu(_x):

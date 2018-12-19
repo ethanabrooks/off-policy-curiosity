@@ -2,7 +2,7 @@
 from abc import abstractmethod
 from collections import namedtuple
 import enum
-from typing import Callable, Iterable, List, Sequence
+from typing import List
 
 # third party
 import numpy as np
@@ -54,7 +54,8 @@ class AbstractAgent:
 
         self.network_args = network_args
         with tf.variable_scope('pi'):
-            self.pi_network = make_network(o_size, network_args['layer_size'], **network_args)
+            self.pi_network = make_network(o_size, network_args['layer_size'],
+                                           **network_args)
         self.embed_args = embed_args
         self.embed = bool(embed_args)
         self.grad_clip = grad_clip
@@ -75,8 +76,7 @@ class AbstractAgent:
         tau = 0.01
 
         processed_s = self.pi_network(self.O1)
-        parameters = self.parameters = self.produce_policy_parameters(
-            a_size, processed_s)
+        parameters = self.parameters = self.produce_policy_parameters(a_size, processed_s)
 
         def pi_network_log_prob(a: tf.Tensor, name: str, _reuse: bool) \
                 -> tf.Tensor:
@@ -146,8 +146,7 @@ class AbstractAgent:
 
         # placeholders
         soft_update_xi_bar_ops = [
-            tf.assign(xbar, tau * x + (1 - tau) * xbar)
-            for (xbar, x) in zip(xi_bar, xi)
+            tf.assign(xbar, tau * x + (1 - tau) * xbar) for (xbar, x) in zip(xi_bar, xi)
         ]
         self.soft_update_xi_bar = tf.group(*soft_update_xi_bar_ops)
         self.check = tf.add_check_numerics_ops()
@@ -169,10 +168,10 @@ class AbstractAgent:
     def train_step(self, step: Step) -> dict:
         feed_dict = {
             self.O1: step.o1,
-            self.A:  step.a,
-            self.R:  np.array(step.r) * self.reward_scale,
+            self.A: step.a,
+            self.R: np.array(step.r) * self.reward_scale,
             self.O2: step.o2,
-            self.T:  step.t,
+            self.T: step.t,
         }
         return self.sess.run(
             {attr: getattr(self, attr)
@@ -206,10 +205,10 @@ class AbstractAgent:
             self.Q_error,
             feed_dict={
                 self.O1: step.o1,
-                self.A:  step.a,
-                self.R:  step.r,
+                self.A: step.a,
+                self.R: step.r,
                 self.O2: step.o2,
-                self.T:  step.t
+                self.T: step.t
             })
 
     def _print(self, tensor, name: str):

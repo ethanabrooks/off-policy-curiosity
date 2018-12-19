@@ -132,8 +132,8 @@ class Trainer:
                     best_average = new_average
 
             if logdir and episodes % 10 == 1 and passes_save_threshold:
-                print("model saved in path:", saver.save(self.sess, save_path=str(
-                    logdir)))
+                print("model saved in path:", saver.save(
+                    self.sess, save_path=str(logdir)))
                 saver.save(self.sess, str(logdir).replace('<episode>', str(episodes)))
 
             time_steps, _ = self.sess.run(
