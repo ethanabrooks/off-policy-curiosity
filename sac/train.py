@@ -15,7 +15,6 @@ import tensorflow as tf
 
 from environments.hindsight_wrapper import HindsightWrapper
 from sac.agent import AbstractAgent
-from sac.networks import MlpAgent
 from sac.policies import CategoricalPolicy, GaussianPolicy
 from sac.replay_buffer import ReplayBuffer
 from sac.utils import Obs, Shape, Step, create_sess, get_space_attrs, space_to_size, unwrap_env, vectorize
@@ -86,7 +85,6 @@ class Trainer:
         # action_space=action_space,
         # observation_space=observation_space,
         # **kwargs))
-        self.seq_len = self.agents.act.seq_len
 
         self.global_step = tf.Variable(0, name='global_step', trainable=False)
         self.episode_time_step = tf.placeholder(tf.int32, name='episode_time_steps')
@@ -228,7 +226,7 @@ class Trainer:
         else:
             policy_type = GaussianPolicy
 
-        class Agent(policy_type, MlpAgent):
+        class Agent(policy_type):
             def __init__(self):
                 super(Agent, self).__init__(
                     o_size=observation_space.shape[0],
@@ -274,27 +272,16 @@ class Trainer:
 
     def sample_buffer(self, batch_size=None) -> Step:
         batch_size = batch_size or self.batch_size
-        sample = Step(*self.buffer.sample(batch_size, seq_len=self.seq_len))
-        if self.seq_len is None:
-            # leave state as dummy value for non-recurrent
-            shape = [batch_size, -1]
-            return Step(
-                o1=self.preprocess_obs(sample.o1, shape=shape),
-                o2=self.preprocess_obs(sample.o2, shape=shape),
-                s=sample.s,
-                a=sample.a,
-                r=sample.r,
-                t=sample.t)
-        else:
-            # adjust state for recurrent networks
-            shape = [batch_size, self.seq_len, -1]
-            return Step(
-                o1=self.preprocess_obs(sample.o1, shape=shape),
-                o2=self.preprocess_obs(sample.o2, shape=shape),
-                s=np.swapaxes(sample.s[:, -1], 0, 1),
-                a=sample.a[:, -1],
-                r=sample.r[:, -1],
-                t=sample.t[:, -1])
+        sample = Step(*self.buffer.sample(batch_size))
+        # leave state as dummy value for non-recurrent
+        shape = [batch_size, -1]
+        return Step(
+            o1=self.preprocess_obs(sample.o1, shape=shape),
+            o2=self.preprocess_obs(sample.o2, shape=shape),
+            s=sample.s,
+            a=sample.a,
+            r=sample.r,
+            t=sample.t)
 
 
 class HindsightTrainer(Trainer):

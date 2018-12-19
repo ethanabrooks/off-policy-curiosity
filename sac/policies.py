@@ -1,10 +1,12 @@
 # third party
 import tensorflow as tf
 
+from sac.agent import AbstractAgent
+
 EPS = 1E-6
 
 
-class GaussianPolicy(object):
+class GaussianPolicy(AbstractAgent):
     """
     Policy outputs a gaussian action that is clamped to the interval [-1, 1]
     """
@@ -56,7 +58,7 @@ class GaussianMixturePolicy(object):
         pass
 
 
-class CategoricalPolicy(object):
+class CategoricalPolicy(AbstractAgent):
     @staticmethod
     def produce_policy_parameters(a_shape, processed_s):
         logits = tf.layers.dense(processed_s, a_shape, name='logits')

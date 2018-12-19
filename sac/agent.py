@@ -9,7 +9,7 @@ import numpy as np
 import tensorflow as tf
 
 # first party
-from sac.utils import ArrayLike, Step, make_network
+from sac.utils import ArrayLike, Step, make_network, mlp
 
 NetworkOutput = namedtuple('NetworkOutput', 'output state')
 
@@ -164,10 +164,6 @@ class AbstractAgent:
         hard_update_xi_bar = tf.group(*hard_update_xi_bar_ops)
         sess.run(hard_update_xi_bar)
 
-    @property
-    def seq_len(self):
-        return self._seq_len
-
     def train_step(self, step: Step) -> dict:
         feed_dict = {
             self.O1: step.o1,
@@ -190,7 +186,8 @@ class AbstractAgent:
 
     def v_network(self, o: tf.Tensor, name: str, reuse: bool = None) -> tf.Tensor:
         with tf.variable_scope(name, reuse=reuse):
-            return tf.reshape(tf.layers.dense(self.network(o), 1, name='v'), [-1])
+            network = self.network(o)
+            return tf.reshape(tf.layers.dense(network, 1, name='v'), [-1])
 
     def get_v1(self, o1: np.ndarray):
         return self.sess.run(self.v1, feed_dict={self.O1: [o1]})[0]
@@ -212,15 +209,14 @@ class AbstractAgent:
                 self.T: step.t
             })
 
+    def network(self, inputs: tf.Tensor):
+        return mlp(inputs=inputs, **self.network_args)
+
     def _print(self, tensor, name: str):
         return tf.Print(tensor, [tensor], message=name, summarize=1e5)
 
     @abstractmethod
     def goal_network(self, inputs: tf.Tensor) -> tf.Tensor:
-        pass
-
-    @abstractmethod
-    def network(self, inputs: tf.Tensor) -> NetworkOutput:
         pass
 
     @abstractmethod
