@@ -53,9 +53,8 @@ class AbstractAgent:
         ]
 
         self.network_args = network_args
-        with tf.variable_scope('pi'):
-            self.pi_network = make_network(o_size, network_args['layer_size'],
-                                           **network_args)
+        self.pi_network = make_network(o_size, network_args['layer_size'],
+                                       **network_args)
         self.embed_args = embed_args
         self.embed = bool(embed_args)
         self.grad_clip = grad_clip
@@ -129,7 +128,8 @@ class AbstractAgent:
             return tf.get_collection(
                 tf.GraphKeys.TRAINABLE_VARIABLES, scope=f'{var_name}/')
 
-        phi, theta, xi, xi_bar = map(get_variables, ['pi', 'Q', 'V', 'V_bar'])
+        phi = self.pi_network.trainable_variables
+        theta, xi, xi_bar = map(get_variables, ['Q', 'V', 'V_bar'])
 
         def train_op(loss, var_list, lr=learning_rate):
             optimizer = tf.train.AdamOptimizer(learning_rate=lr)
