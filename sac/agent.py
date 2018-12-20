@@ -52,9 +52,8 @@ class AbstractAgent:
             'train_pi',
         ]
 
+        self.o_size = o_size
         self.network_args = network_args
-        self._v_network = make_network(o_size, network_args['layer_size'],
-                                       **network_args)
         self.pi_network = make_network(o_size, network_args['layer_size'],
                                        **network_args)
         self.embed_args = embed_args
@@ -188,8 +187,9 @@ class AbstractAgent:
 
     def v_network(self, o: tf.Tensor, name: str, reuse: bool = None) -> tf.Tensor:
         with tf.variable_scope(name, reuse=reuse):
-            network = self._v_network(o)
-            return tf.reshape(tf.layers.dense(network, 1, name='v'), [-1])
+            network = make_network(self.o_size, self.network_args['layer_size'],
+                                           **self.network_args)
+            return tf.reshape(tf.layers.dense(network(o), 1, name='v'), [-1])
 
     def get_v1(self, o1: np.ndarray):
         return self.sess.run(self.v1, feed_dict={self.O1: [o1]})[0]
