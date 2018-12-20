@@ -189,7 +189,10 @@ class AbstractAgent:
 
     def q_network(self, oa: tf.Tensor, reuse: bool = None) -> tf.Tensor:
         with tf.variable_scope('Q', reuse=reuse):
-            return tf.reshape(tf.layers.dense(self.network(oa), 1, name='q'), [-1])
+            network = make_network(self.o_size + self.a_size,
+                                   self.network_args['layer_size'],
+                                   **self.network_args)
+            return tf.reshape(tf.layers.dense(network(oa), 1, name='q'), [-1])
 
     def get_v1(self, o1: np.ndarray):
         return self.sess.run(self.v1, feed_dict={self.O1: [o1]})[0]
