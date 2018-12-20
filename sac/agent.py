@@ -58,8 +58,9 @@ class AbstractAgent:
                                        **network_args)
         args = self.network_args.copy()
         args.update(n_hidden=args['n_hidden'] + 1)
-        self.v1_network = make_network(self.o_size, 1, **args)
-        self.v2_network = make_network(self.o_size, 1, **args)
+        self.v1_network = make_network(o_size, 1, **args)
+        self.v2_network = make_network(o_size, 1, **args)
+        self.q_network = make_network(o_size + a_size, 1, **args)
         self.embed_args = embed_args
         self.embed = bool(embed_args)
         self.grad_clip = grad_clip
@@ -100,9 +101,8 @@ class AbstractAgent:
         # constructing V loss
         v1 = tf.reshape(self.v1_network(self.O1), [-1])
         self.v1 = v1
-        q1 = self.q_network(
-            tf.concat([self.O1, self.transform_action_sample(A_sampled1)], axis=1),
-            reuse=False)
+        q1 = tf.reshape(self.q_network(
+            tf.concat([self.O1, self.transform_action_sample(A_sampled1)], axis=1)), [-1])
         log_pi_sampled1 = pi_network_log_prob(A_sampled1, 'pi', _reuse=True)
         log_pi_sampled1 *= entropy_scale  # type: tf.Tensor
         self.V_loss = V_loss = tf.reduce_mean(
@@ -110,8 +110,9 @@ class AbstractAgent:
 
         # constructing Q loss
         self.v2 = v2 = tf.reshape(self.v2_network(self.O2), [-1])
-        self.q1 = q = self.q_network(
-            tf.concat([self.O1, self.transform_action_sample(A)], axis=1), reuse=True)
+        self.q1 = q = tf.reshape(self.q_network(
+            tf.concat([self.O1, self.transform_action_sample(A)], axis=1)),
+            [-1])
         not_done = 1 - T  # type: tf.Tensor
         self.q_target = q_target = R + gamma * not_done * v2
         self.Q_error = tf.square(q - q_target)
@@ -120,9 +121,8 @@ class AbstractAgent:
         # constructing pi loss
         self.A_sampled2 = A_sampled2 = tf.stop_gradient(
             sample_pi_network('pi', _reuse=True))
-        q2 = self.q_network(
-            tf.concat([self.O1, self.transform_action_sample(A_sampled2)], axis=1),
-            reuse=True)
+        q2 = tf.reshape(self.q_network(
+            tf.concat([self.O1, self.transform_action_sample(A_sampled2)], axis=1)), [-1])
         log_pi_sampled2 = pi_network_log_prob(A_sampled2, 'pi', _reuse=True)
         log_pi_sampled2 *= entropy_scale  # type: tf.Tensor
         self.pi_loss = pi_loss = tf.reduce_mean(
@@ -136,7 +136,7 @@ class AbstractAgent:
         phi = self.pi_network.trainable_variables
         xi = self.v1_network.trainable_variables
         xi_bar = self.v2_network.trainable_variables
-        theta = tf.trainable_variables('Q')
+        theta = self.q_network.trainable_variables
 
         def train_op(loss, var_list, lr=learning_rate):
             optimizer = tf.train.AdamOptimizer(learning_rate=lr)
@@ -186,13 +186,6 @@ class AbstractAgent:
     def get_actions(self, o: ArrayLike, sample: bool = True, state=None) -> NetworkOutput:
         A = self.A_sampled1 if sample else self.A_max_likelihood
         return NetworkOutput(output=self.sess.run(A, {self.O1: [o]})[0], state=0)
-
-    def q_network(self, oa: tf.Tensor, reuse: bool = None) -> tf.Tensor:
-        with tf.variable_scope('Q', reuse=reuse):
-            args = self.network_args.copy()
-            args.update(n_hidden=args['n_hidden'] + 1)
-            network = make_network(self.o_size + self.a_size, 1, **args)
-            return tf.reshape(network(oa), [-1])
 
     def get_v1(self, o1: np.ndarray):
         return self.sess.run(self.v1, feed_dict={self.O1: [o1]})[0]
