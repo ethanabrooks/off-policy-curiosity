@@ -187,9 +187,10 @@ class AbstractAgent:
 
     def v_network(self, o: tf.Tensor, name: str, reuse: bool = None) -> tf.Tensor:
         with tf.variable_scope(name, reuse=reuse):
-            network = make_network(self.o_size, self.network_args['layer_size'],
-                                           **self.network_args)
-            return tf.reshape(tf.layers.dense(network(o), 1, name='v'), [-1])
+            args = self.network_args.copy()
+            args.update(n_hidden=args['n_hidden'] + 1)
+            network = make_network(self.o_size, 1, **args)
+            return tf.reshape(network(o), [-1])
 
     def get_v1(self, o1: np.ndarray):
         return self.sess.run(self.v1, feed_dict={self.O1: [o1]})[0]
