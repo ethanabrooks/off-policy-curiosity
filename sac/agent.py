@@ -56,6 +56,12 @@ class AbstractAgent:
         self.network_args = network_args
         self.pi_network = make_network(o_size, network_args['layer_size'],
                                        **network_args)
+        args = self.network_args.copy()
+        args.update(n_hidden=args['n_hidden'] + 1)
+        with tf.variable_scope('V'):
+            self.v1_network = make_network(self.o_size, 1, **args)
+        with tf.variable_scope('V_bar'):
+            self.v2_network = make_network(self.o_size, 1, **args)
         self.embed_args = embed_args
         self.embed = bool(embed_args)
         self.grad_clip = grad_clip
@@ -94,7 +100,7 @@ class AbstractAgent:
             sample_pi_network('pi', _reuse=True))
 
         # constructing V loss
-        v1 = self.v_network(self.O1, 'V')
+        v1 = tf.reshape(self.v1_network(self.O1), [-1])
         self.v1 = v1
         q1 = self.q_network(
             tf.concat([self.O1, self.transform_action_sample(A_sampled1)], axis=1),
@@ -105,7 +111,7 @@ class AbstractAgent:
             0.5 * tf.square(v1 - (q1 - log_pi_sampled1)))
 
         # constructing Q loss
-        self.v2 = v2 = self.v_network(self.O2, 'V_bar')
+        self.v2 = v2 = tf.reshape(self.v2_network(self.O2), [-1])
         self.q1 = q = self.q_network(
             tf.concat([self.O1, self.transform_action_sample(A)], axis=1), reuse=True)
         not_done = 1 - T  # type: tf.Tensor
@@ -184,13 +190,6 @@ class AbstractAgent:
     def q_network(self, oa: tf.Tensor, reuse: bool = None) -> tf.Tensor:
         with tf.variable_scope('Q', reuse=reuse):
             return tf.reshape(tf.layers.dense(self.network(oa), 1, name='q'), [-1])
-
-    def v_network(self, o: tf.Tensor, name: str, reuse: bool = None) -> tf.Tensor:
-        with tf.variable_scope(name, reuse=reuse):
-            args = self.network_args.copy()
-            args.update(n_hidden=args['n_hidden'] + 1)
-            network = make_network(self.o_size, 1, **args)
-            return tf.reshape(network(o), [-1])
 
     def get_v1(self, o1: np.ndarray):
         return self.sess.run(self.v1, feed_dict={self.O1: [o1]})[0]
