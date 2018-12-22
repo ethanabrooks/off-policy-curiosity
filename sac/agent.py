@@ -122,12 +122,8 @@ class AbstractAgent:
             return tf.get_collection(
                 tf.GraphKeys.TRAINABLE_VARIABLES, scope=f'{var_name}/')
 
-        phi = self.pi_network.trainable_variables
-        xi = self.v1_network.trainable_variables
-        xi_bar = self.v2_network.trainable_variables
-        theta = self.q_network.trainable_variables
-
-        def train_op(loss, var_list, lr=learning_rate):
+        def update(network: tf.keras.Model, loss, lr=learning_rate):
+            var_list = network.trainable_variables
             optimizer = tf.train.AdamOptimizer(learning_rate=lr)
             gradients, variables = zip(
                 *optimizer.compute_gradients(loss, var_list=var_list))
@@ -139,13 +135,14 @@ class AbstractAgent:
                 zip(gradients, variables), global_step=self.global_step)
             return op, norm
 
-        self.train_V, self.V_grad = train_op(loss=V_loss, var_list=xi)
-        self.train_Q, self.Q_grad = train_op(loss=Q_loss, var_list=theta)
-        self.train_pi, self.pi_grad = train_op(loss=pi_loss, var_list=phi)
+        self.train_V, self.V_grad = update(network=self.v1_network, loss=V_loss)
+        self.train_Q, self.Q_grad = update(network=self.q_network, loss=Q_loss)
+        self.train_pi, self.pi_grad = update(network=self.pi_network, loss=pi_loss)
 
         # placeholders
         soft_update_xi_bar_ops = [
-            tf.assign(xbar, tau * x + (1 - tau) * xbar) for (xbar, x) in zip(xi_bar, xi)
+            tf.assign(xbar, tau * x + (1 - tau) * xbar) for (xbar, x)
+            in zip(self.v2_network.trainable_variables, self.v1_network.trainable_variables)
         ]
         self.soft_update_xi_bar = tf.group(*soft_update_xi_bar_ops)
         # self.check = tf.add_check_numerics_ops()
