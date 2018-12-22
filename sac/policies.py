@@ -12,8 +12,8 @@ class GaussianPolicy(AbstractAgent):
     """
     @staticmethod
     def produce_policy_parameters(a_size: int, processed_s: tf.Tensor):
-        mu, sigma = tf.split(processed_s, 2, axis=1)
-        return mu, sigma + 0.0001
+        mu, sigma_param = tf.split(processed_s, 2, axis=1)
+        return mu, tf.exp(sigma_param) + 0.0001
 
     @staticmethod
     def policy_parameters_to_log_prob(u, parameters):
