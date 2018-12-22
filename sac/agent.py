@@ -42,10 +42,6 @@ class AbstractAgent:
         args = self.network_args.copy()
         args.update(n_hidden=args['n_hidden'] + 1)
         self.pi_network = make_network(o_size, 2 * a_size, **args)
-        self.v1_network = make_network(o_size, 1, **args)
-        self.v2_network = make_network(o_size, 1, **args)
-        self.v2_network.set_weights(self.v1_network.get_weights())
-        self.q_network = make_network(o_size + a_size, 1, **args)
         self.embed_args = embed_args
         self.embed = bool(embed_args)
         self.grad_clip = grad_clip
@@ -55,6 +51,11 @@ class AbstractAgent:
         self.reward_scale = reward_scale
         self.sess = sess
 
+        self.q_network = make_network(a_size + o_size, 1, **network_args)
+        self.v1_network = make_network(o_size, 1, **network_args)
+        self.v2_network = make_network(o_size, 1, **network_args)
+
+        self.v2_network.set_weights(self.v1_network.get_weights())
         self.global_step = tf.Variable(0, name='global_step')
 
         self.O1 = tf.placeholder(tf.float32, [None, o_size], name='O1')
