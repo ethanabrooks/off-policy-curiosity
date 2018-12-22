@@ -66,85 +66,86 @@ class AbstractAgent:
         gamma = tf.constant(0.99)
         tau = 0.01
 
-        processed_s = self.pi_network(self.O1)
-        parameters = self.parameters = self.produce_policy_parameters(a_size, processed_s)
+        with tf.variable_scope('agent'):
+            processed_s = self.pi_network(self.O1)
+            parameters = self.parameters = self.produce_policy_parameters(a_size, processed_s)
 
-        def pi_network_log_prob(a: tf.Tensor, name: str, _reuse: bool) \
-                -> tf.Tensor:
-            with tf.variable_scope(name, reuse=_reuse):
-                return self.policy_parameters_to_log_prob(a, parameters)
+            def pi_network_log_prob(a: tf.Tensor, name: str, _reuse: bool) \
+                    -> tf.Tensor:
+                with tf.variable_scope(name, reuse=_reuse):
+                    return self.policy_parameters_to_log_prob(a, parameters)
 
-        def sample_pi_network(name: str, _reuse: bool) -> tf.Tensor:
-            with tf.variable_scope(name, reuse=_reuse):
-                return self.policy_parameters_to_sample(parameters)
+            def sample_pi_network(name: str, _reuse: bool) -> tf.Tensor:
+                with tf.variable_scope(name, reuse=_reuse):
+                    return self.policy_parameters_to_sample(parameters)
 
-        # generate actions:
-        self.A_max_likelihood = tf.stop_gradient(
-            self.policy_parameters_to_max_likelihood_action(parameters))
-        self.A_sampled1 = A_sampled1 = tf.stop_gradient(
-            sample_pi_network('pi', _reuse=True))
+            # generate actions:
+            self.A_max_likelihood = tf.stop_gradient(
+                self.policy_parameters_to_max_likelihood_action(parameters))
+            self.A_sampled1 = A_sampled1 = tf.stop_gradient(
+                sample_pi_network('pi', _reuse=True))
 
-        # constructing V loss
-        v1 = tf.reshape(self.v1_network(self.O1), [-1])
-        self.v1 = v1
-        q1 = tf.reshape(
-            self.q_network(
-                tf.concat([self.O1, self.transform_action_sample(A_sampled1)], axis=1)),
-            [-1])
-        log_pi_sampled1 = pi_network_log_prob(A_sampled1, 'pi', _reuse=True)
-        log_pi_sampled1 *= entropy_scale  # type: tf.Tensor
-        self.V_loss = V_loss = tf.reduce_mean(
-            0.5 * tf.square(v1 - (q1 - log_pi_sampled1)))
+            # constructing V loss
+            v1 = tf.reshape(self.v1_network(self.O1), [-1])
+            self.v1 = v1
+            q1 = tf.reshape(
+                self.q_network(
+                    tf.concat([self.O1, self.transform_action_sample(A_sampled1)], axis=1)),
+                [-1])
+            log_pi_sampled1 = pi_network_log_prob(A_sampled1, 'pi', _reuse=True)
+            log_pi_sampled1 *= entropy_scale  # type: tf.Tensor
+            self.V_loss = V_loss = tf.reduce_mean(
+                0.5 * tf.square(v1 - (q1 - log_pi_sampled1)))
 
-        # constructing Q loss
-        self.v2 = v2 = tf.reshape(self.v2_network(self.O2), [-1])
-        self.q1 = q = tf.reshape(
-            self.q_network(tf.concat([self.O1, self.transform_action_sample(A)], axis=1)),
-            [-1])
-        not_done = 1 - T  # type: tf.Tensor
-        self.q_target = q_target = R + gamma * not_done * v2
-        self.Q_error = tf.square(q - q_target)
-        self.Q_loss = Q_loss = tf.reduce_mean(0.5 * self.Q_error)
+            # constructing Q loss
+            self.v2 = v2 = tf.reshape(self.v2_network(self.O2), [-1])
+            self.q1 = q = tf.reshape(
+                self.q_network(tf.concat([self.O1, self.transform_action_sample(A)], axis=1)),
+                [-1])
+            not_done = 1 - T  # type: tf.Tensor
+            self.q_target = q_target = R + gamma * not_done * v2
+            self.Q_error = tf.square(q - q_target)
+            self.Q_loss = Q_loss = tf.reduce_mean(0.5 * self.Q_error)
 
-        # constructing pi loss
-        self.A_sampled2 = A_sampled2 = tf.stop_gradient(
-            sample_pi_network('pi', _reuse=True))
-        q2 = tf.reshape(
-            self.q_network(
-                tf.concat([self.O1, self.transform_action_sample(A_sampled2)], axis=1)),
-            [-1])
-        log_pi_sampled2 = pi_network_log_prob(A_sampled2, 'pi', _reuse=True)
-        log_pi_sampled2 *= entropy_scale  # type: tf.Tensor
-        self.pi_loss = pi_loss = tf.reduce_mean(
-            log_pi_sampled2 * tf.stop_gradient(log_pi_sampled2 - q2 + v1))
+            # constructing pi loss
+            self.A_sampled2 = A_sampled2 = tf.stop_gradient(
+                sample_pi_network('pi', _reuse=True))
+            q2 = tf.reshape(
+                self.q_network(
+                    tf.concat([self.O1, self.transform_action_sample(A_sampled2)], axis=1)),
+                [-1])
+            log_pi_sampled2 = pi_network_log_prob(A_sampled2, 'pi', _reuse=True)
+            log_pi_sampled2 *= entropy_scale  # type: tf.Tensor
+            self.pi_loss = pi_loss = tf.reduce_mean(
+                log_pi_sampled2 * tf.stop_gradient(log_pi_sampled2 - q2 + v1))
 
-        def update(network: tf.keras.Model, loss):
-            var_list = network.trainable_variables
-            gradients, variables = zip(
-                *self.optimizer.compute_gradients(loss, var_list=var_list))
-            if grad_clip:
-                gradients, norm = tf.clip_by_global_norm(gradients, grad_clip)
-            else:
-                norm = tf.global_norm(gradients)
-            op = self.optimizer.apply_gradients(
-                zip(gradients, variables), global_step=self.global_step)
-            return op, norm
+            def update(network: tf.keras.Model, loss):
+                var_list = network.trainable_variables
+                gradients, variables = zip(
+                    *self.optimizer.compute_gradients(loss, var_list=var_list))
+                if grad_clip:
+                    gradients, norm = tf.clip_by_global_norm(gradients, grad_clip)
+                else:
+                    norm = tf.global_norm(gradients)
+                op = self.optimizer.apply_gradients(
+                    zip(gradients, variables), global_step=self.global_step)
+                return op, norm
 
-        self.train_V, self.V_grad = update(network=self.v1_network, loss=V_loss)
-        self.train_Q, self.Q_grad = update(network=self.q_network, loss=Q_loss)
-        self.train_pi, self.pi_grad = update(network=self.pi_network, loss=pi_loss)
+            self.train_V, self.V_grad = update(network=self.v1_network, loss=V_loss)
+            self.train_Q, self.Q_grad = update(network=self.q_network, loss=Q_loss)
+            self.train_pi, self.pi_grad = update(network=self.pi_network, loss=pi_loss)
 
-        # placeholders
-        soft_update_xi_bar_ops = [
-            tf.assign(xbar, tau * x + (1 - tau) * xbar) for (xbar, x)
-            in zip(self.v2_network.trainable_variables, self.v1_network.trainable_variables)
-        ]
-        self.soft_update_xi_bar = tf.group(*soft_update_xi_bar_ops)
-        # self.check = tf.add_check_numerics_ops()
-        self.entropy = tf.reduce_mean(self.entropy_from_params(self.parameters))
-        # ensure that xi and xi_bar are the same at initialization
+            # placeholders
+            soft_update_xi_bar_ops = [
+                tf.assign(xbar, tau * x + (1 - tau) * xbar) for (xbar, x)
+                in zip(self.v2_network.trainable_variables, self.v1_network.trainable_variables)
+            ]
+            self.soft_update_xi_bar = tf.group(*soft_update_xi_bar_ops)
+            # self.check = tf.add_check_numerics_ops()
+            self.entropy = tf.reduce_mean(self.entropy_from_params(self.parameters))
+            # ensure that xi and xi_bar are the same at initialization
 
-        sess.run(tf.global_variables_initializer())
+            sess.run(tf.global_variables_initializer())
 
     def train_step(self, step: Step) -> dict:
         feed_dict = {
@@ -202,7 +203,7 @@ class AbstractAgent:
         return tf.Print(tensor, [tensor], message=name, summarize=1e5)
 
     @abstractmethod
-    def goal_network(self, inputs: tf.Tensor) -> tf.Tensor:
+    def pi_network(self, inputs: tf.Tensor) -> tf.Tensor:
         pass
 
     @abstractmethod
