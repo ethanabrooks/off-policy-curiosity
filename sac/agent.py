@@ -117,11 +117,6 @@ class AbstractAgent:
         self.pi_loss = pi_loss = tf.reduce_mean(
             log_pi_sampled2 * tf.stop_gradient(log_pi_sampled2 - q2 + v1))
 
-        # grabbing all the relevant variables
-        def get_variables(var_name: str) -> List[tf.Variable]:
-            return tf.get_collection(
-                tf.GraphKeys.TRAINABLE_VARIABLES, scope=f'{var_name}/')
-
         def update(network: tf.keras.Model, loss, lr=learning_rate):
             var_list = network.trainable_variables
             optimizer = tf.train.AdamOptimizer(learning_rate=lr)
