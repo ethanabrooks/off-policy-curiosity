@@ -10,10 +10,11 @@ class GaussianPolicy(AbstractAgent):
     """
     Policy outputs a gaussian action that is clamped to the interval [-1, 1]
     """
+
     @staticmethod
     def produce_policy_parameters(a_size: int, processed_s: tf.Tensor):
         mu, sigma_param = tf.split(processed_s, 2, axis=1)
-        return mu, tf.exp(sigma_param) + 0.0001
+        return mu, tf.sigmoid(sigma_param) + 0.0001
 
     @staticmethod
     def policy_parameters_to_log_prob(u, parameters):
