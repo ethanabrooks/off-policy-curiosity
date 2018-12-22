@@ -54,10 +54,9 @@ class AbstractAgent:
 
         self.o_size = o_size
         self.network_args = network_args
-        self.pi_network = make_network(o_size, network_args['layer_size'],
-                                       **network_args)
         args = self.network_args.copy()
         args.update(n_hidden=args['n_hidden'] + 1)
+        self.pi_network = make_network(o_size, 2 * a_size, **args)
         self.v1_network = make_network(o_size, 1, **args)
         self.v2_network = make_network(o_size, 1, **args)
         self.q_network = make_network(o_size + a_size, 1, **args)
