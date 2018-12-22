@@ -2,6 +2,7 @@
 import tensorflow as tf
 
 from sac.agent import AbstractAgent
+from sac.utils import make_network
 
 EPS = 1E-6
 
@@ -10,6 +11,14 @@ class GaussianPolicy(AbstractAgent):
     """
     Policy outputs a gaussian action that is clamped to the interval [-1, 1]
     """
+
+    def __init__(self, o_size: int, a_size: int, network_args: dict, **kwargs):
+        self.network_args = network_args
+        args = self.network_args.copy()
+        args.update(n_hidden=args['n_hidden'] + 1)
+        self.pi_network = make_network(o_size, 2 * a_size, **args)
+        super().__init__(network_args=network_args, o_size=o_size, a_size=a_size,
+                         **kwargs)
 
     @staticmethod
     def produce_policy_parameters(a_size: int, processed_s: tf.Tensor):
@@ -23,7 +32,7 @@ class GaussianPolicy(AbstractAgent):
         # print(log_prob)
         return tf.reduce_sum(
             log_prob, axis=1) - tf.reduce_sum(
-                tf.log(1 - tf.square(tf.tanh(u)) + EPS), axis=1)
+            tf.log(1 - tf.square(tf.tanh(u)) + EPS), axis=1)
 
     @staticmethod
     def policy_parameters_to_max_likelihood_action(parameters):
@@ -73,7 +82,8 @@ class CategoricalPolicy(AbstractAgent):
     def policy_parameters_to_sample(parameters):
         logits = parameters
         a_shape = logits.get_shape()[1].value
-        # logits = tf.Print(logits, [tf.nn.softmax(logits)], message='logits are:', summarize=10)
+        # logits = tf.Print(logits, [tf.nn.softmax(logits)], message='logits are:',
+        # summarize=10)
         out = tf.one_hot(tf.distributions.Categorical(logits=logits).sample(), a_shape)
         return out
 

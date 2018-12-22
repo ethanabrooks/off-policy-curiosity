@@ -38,10 +38,6 @@ class AbstractAgent:
             embed_args: dict = None,
     ) -> None:
         self.o_size = o_size
-        self.network_args = network_args
-        args = self.network_args.copy()
-        args.update(n_hidden=args['n_hidden'] + 1)
-        self.pi_network = make_network(o_size, 2 * a_size, **args)
         self.embed_args = embed_args
         self.embed = bool(embed_args)
         self.grad_clip = grad_clip
