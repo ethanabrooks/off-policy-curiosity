@@ -66,6 +66,17 @@ class AbstractAgent:
         gamma = tf.constant(0.99)
         tau = 0.01
 
+        def update(network: tf.keras.Model, loss: tf.Tensor):
+            variables = network.trainable_variables
+            gradients, variables = zip(*self.optimizer.compute_gradients(loss, variables))
+            if self.grad_clip:
+                gradients, norm = tf.clip_by_global_norm(gradients, self.grad_clip)
+            else:
+                norm = tf.global_norm(gradients)
+            op = self.optimizer.apply_gradients(
+                zip(gradients, variables), global_step=self.global_step)
+            return op, norm
+
         with tf.variable_scope('agent'):
             processed_s = self.pi_network(self.O1)
             parameters = self.parameters = self.produce_policy_parameters(a_size, processed_s)
@@ -118,18 +129,6 @@ class AbstractAgent:
             log_pi_sampled2 *= entropy_scale  # type: tf.Tensor
             self.pi_loss = pi_loss = tf.reduce_mean(
                 log_pi_sampled2 * tf.stop_gradient(log_pi_sampled2 - q2 + v1))
-
-            def update(network: tf.keras.Model, loss):
-                var_list = network.trainable_variables
-                gradients, variables = zip(
-                    *self.optimizer.compute_gradients(loss, var_list=var_list))
-                if grad_clip:
-                    gradients, norm = tf.clip_by_global_norm(gradients, grad_clip)
-                else:
-                    norm = tf.global_norm(gradients)
-                op = self.optimizer.apply_gradients(
-                    zip(gradients, variables), global_step=self.global_step)
-                return op, norm
 
             self.train_V, self.V_grad = update(network=self.v1_network, loss=V_loss)
             self.train_Q, self.Q_grad = update(network=self.q_network, loss=Q_loss)
