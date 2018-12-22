@@ -57,6 +57,10 @@ class AbstractAgent:
 
         self.v2_network.set_weights(self.v1_network.get_weights())
         self.global_step = tf.Variable(0, name='global_step')
+        self.optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+        if embed_args:
+            self.embed_optimizer = tf.train.AdamOptimizer(
+                learning_rate=embed_args.pop('learning_rate', learning_rate))
 
         self.O1 = tf.placeholder(tf.float32, [None, o_size], name='O1')
         self.O2 = tf.placeholder(tf.float32, [None, o_size], name='O2')
@@ -118,16 +122,15 @@ class AbstractAgent:
         self.pi_loss = pi_loss = tf.reduce_mean(
             log_pi_sampled2 * tf.stop_gradient(log_pi_sampled2 - q2 + v1))
 
-        def update(network: tf.keras.Model, loss, lr=learning_rate):
+        def update(network: tf.keras.Model, loss):
             var_list = network.trainable_variables
-            optimizer = tf.train.AdamOptimizer(learning_rate=lr)
             gradients, variables = zip(
-                *optimizer.compute_gradients(loss, var_list=var_list))
+                *self.optimizer.compute_gradients(loss, var_list=var_list))
             if grad_clip:
                 gradients, norm = tf.clip_by_global_norm(gradients, grad_clip)
             else:
                 norm = tf.global_norm(gradients)
-            op = optimizer.apply_gradients(
+            op = self.optimizer.apply_gradients(
                 zip(gradients, variables), global_step=self.global_step)
             return op, norm
 
