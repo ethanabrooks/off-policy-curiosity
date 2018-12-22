@@ -78,23 +78,19 @@ class AbstractAgent:
             return op, norm
 
         with tf.variable_scope('agent'):
-            processed_s = self.pi_network(self.O1)
-            parameters = self.parameters = self.produce_policy_parameters(a_size, processed_s)
+            parameters = self.produce_policy_parameters(a_size, self.O1)
+            A_sampled1 = self.policy_parameters_to_sample(parameters)
+            A_sampled2 = self.policy_parameters_to_sample(parameters)
+            self.A_sampled1 = A_sampled1
 
             def pi_network_log_prob(a: tf.Tensor, name: str, _reuse: bool) \
                     -> tf.Tensor:
                 with tf.variable_scope(name, reuse=_reuse):
                     return self.policy_parameters_to_log_prob(a, parameters)
 
-            def sample_pi_network(name: str, _reuse: bool) -> tf.Tensor:
-                with tf.variable_scope(name, reuse=_reuse):
-                    return self.policy_parameters_to_sample(parameters)
-
             # generate actions:
             self.A_max_likelihood = tf.stop_gradient(
                 self.policy_parameters_to_max_likelihood_action(parameters))
-            self.A_sampled1 = A_sampled1 = tf.stop_gradient(
-                sample_pi_network('pi', _reuse=True))
 
             # constructing V loss
             v1 = tf.reshape(self.v1_network(self.O1), [-1])
@@ -119,8 +115,6 @@ class AbstractAgent:
             self.Q_loss = Q_loss = tf.reduce_mean(0.5 * self.Q_error)
 
             # constructing pi loss
-            self.A_sampled2 = A_sampled2 = tf.stop_gradient(
-                sample_pi_network('pi', _reuse=True))
             q2 = tf.reshape(
                 self.q_network(
                     tf.concat([self.O1, self.transform_action_sample(A_sampled2)], axis=1)),
@@ -141,7 +135,7 @@ class AbstractAgent:
             ]
             self.soft_update_xi_bar = tf.group(*soft_update_xi_bar_ops)
             # self.check = tf.add_check_numerics_ops()
-            self.entropy = tf.reduce_mean(self.entropy_from_params(self.parameters))
+            self.entropy = tf.reduce_mean(self.entropy_from_params(parameters))
             # ensure that xi and xi_bar are the same at initialization
 
             sess.run(tf.global_variables_initializer())

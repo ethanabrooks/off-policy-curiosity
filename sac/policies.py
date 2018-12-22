@@ -20,9 +20,9 @@ class GaussianPolicy(AbstractAgent):
         super().__init__(network_args=network_args, o_size=o_size, a_size=a_size,
                          **kwargs)
 
-    @staticmethod
-    def produce_policy_parameters(a_size: int, processed_s: tf.Tensor):
-        mu, sigma_param = tf.split(processed_s, 2, axis=1)
+    def produce_policy_parameters(self, a_size: int, o1: tf.Tensor):
+        processed_s = self.pi_network(o1)
+        mu, sigma_param = tf.split(processed_s, 2 , axis=1)
         return mu, tf.sigmoid(sigma_param) + 0.0001
 
     @staticmethod
