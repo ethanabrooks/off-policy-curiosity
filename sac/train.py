@@ -13,12 +13,14 @@ from gym.wrappers import TimeLimit
 import numpy as np
 import tensorflow as tf
 from tensorflow.contrib.summary import summary
+from utils.gym import unwrap_env, get_space_attrs, space_to_size
+from utils.numpy import vectorize
+from utils.types import Step, Obs, Shape
 
 from sac.hindsight_wrapper import HindsightWrapper
 from sac.agent import AbstractAgent
 from sac.policies import CategoricalPolicy, GaussianPolicy
-from sac.replay_buffer import ReplayBuffer
-from sac.util import Obs, Shape, Step, create_sess, get_space_attrs, space_to_size, unwrap_env, vectorize
+from utils.replay_buffer import ReplayBuffer
 
 Agents = namedtuple('Agents', 'train act')
 

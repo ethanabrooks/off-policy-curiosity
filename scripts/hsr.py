@@ -9,12 +9,11 @@ import tensorflow as tf
 # first party
 from hsr.util import env_wrapper, xml_setter
 
-from sac.arguments import parse_activation
+from utils.argparse import parse_activation, parse_space, parse_vector, cast_to_int, \
+    parse_groups, ACTIVATIONS
 from sac.hindsight_wrapper import HSRHindsightWrapper, MBHSRHindsightWrapper
 from hsr.env import HSREnv, MoveGripperEnv, MultiBlockHSREnv
 from sac.train import HindsightTrainer, Trainer
-from sac.util import parse_space, parse_vector, cast_to_int, parse_groups
-from scripts.sac.utils import ACTIVATIONS
 
 ENVIRONMENTS = dict(
     multi_block=MultiBlockHSREnv,

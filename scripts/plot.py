@@ -12,8 +12,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import pandas as pd
 from pandas.errors import EmptyDataError
-
-from sac.util import softmax
+from utils.numpy import softmax
 
 
 def parse_double(string, delimiter='x'):
