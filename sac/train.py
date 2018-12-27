@@ -152,20 +152,19 @@ class Trainer:
         episode_count = Counter()
         episode_mean = Counter()
         tick = time.time()
-        s = 0
         for time_steps in itertools.count(1):
-            a, s = self.get_actions(o1, s, sample=not eval_period)
+            a = self.agent.get_actions(self.preprocess_obs(o1), sample=not eval_period)
             o2, r, t, info = self.step(a, render)
             if 'print' in info:
                 print('Time step:', time_steps, info['print'])
             if not eval_period:
                 episode_mean.update(self.perform_update())
 
-            self.add_to_buffer(Step(s=s, o1=o1, a=a, r=r, o2=o2, t=t))
+            self.add_to_buffer(Step(o1=o1, a=a, r=r, o2=o2, t=t))
             o1 = o2
             # noinspection PyTypeChecker
-            episode_mean.update(
-                Counter(fps=1 / float(time.time() - tick), **info.get('log mean', {})))
+            fps = 1 / float(time.time() - tick)
+            episode_mean.update(Counter(fps=fps, **info.get('log mean', {})))
             # noinspection PyTypeChecker
             episode_count.update(
                 Counter(reward=r, time_steps=1, **info.get('log count', {})))
@@ -199,9 +198,6 @@ class Trainer:
                     observation_space: gym.Space,
                     action_space: gym.Space = None,
                     **kwargs) -> AbstractAgent:
-        if action_space is None:
-            action_space = self.action_space
-
         if isinstance(action_space, spaces.Discrete):
             policy_type = CategoricalPolicy
         else:
@@ -259,7 +255,6 @@ class Trainer:
         return Step(
             o1=self.preprocess_obs(sample.o1, shape=shape),
             o2=self.preprocess_obs(sample.o2, shape=shape),
-            s=sample.s,
             a=sample.a,
             r=sample.r,
             t=sample.t)

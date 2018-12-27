@@ -163,9 +163,9 @@ class AbstractAgent:
         return tf.reshape(
             self.q_network(tf.concat([o, self.preprocess_action(a)], axis=1)), [-1])
 
-    def get_actions(self, o: ArrayLike, sample: bool = True, state=None) -> NetworkOutput:
+    def get_actions(self, o: ArrayLike, sample: bool = True, state=None) -> tf.Tensor:
         A = self.A_sampled1 if sample else self.A_max_likelihood
-        return NetworkOutput(output=self.sess.run(A, {self.O1: [o]})[0], state=0)
+        return self.sess.run(A, {self.O1: [o]})[0]
 
     def get_v1(self, o1: np.ndarray):
         return self.sess.run(self.v1, feed_dict={self.O1: [o1]})[0]
