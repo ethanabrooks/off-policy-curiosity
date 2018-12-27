@@ -57,11 +57,11 @@ class AbstractAgent:
             self.embed_optimizer = tf.train.AdamOptimizer(
                 learning_rate=embed_args.pop('learning_rate', learning_rate))
 
-        self.O1 = tf.placeholder(tf.float32, [None, o_size], name='O1')
-        self.O2 = tf.placeholder(tf.float32, [None, o_size], name='O2')
-        self.A = tf.placeholder(tf.float32, [None, a_size], name='A')
-        self.R = tf.placeholder(tf.float32, [None], name='R')
-        self.T = tf.placeholder(tf.float32, [None], name='T')
+        self.o1 = tf.placeholder(tf.float32, [None, o_size], name='O1')
+        self.o2 = tf.placeholder(tf.float32, [None, o_size], name='O2')
+        self.a = tf.placeholder(tf.float32, [None, a_size], name='A')
+        self.r = tf.placeholder(tf.float32, [None], name='R')
+        self.t = tf.placeholder(tf.float32, [None], name='T')
 
         gamma = tf.constant(0.99)
         tau = 0.01
@@ -77,8 +77,9 @@ class AbstractAgent:
                 zip(gradients, variables), global_step=self.global_step)
             return op, norm
 
+        step = self
         with tf.variable_scope('agent'):
-            parameters = self.get_policy_params(self.a_size, self.O1)
+            parameters = self.get_policy_params(step.a_size, step.o1)
             A_sampled1 = self.policy_parameters_to_sample(parameters)
             A_sampled2 = self.policy_parameters_to_sample(parameters)
             self.A_sampled1 = A_sampled1
@@ -88,32 +89,32 @@ class AbstractAgent:
                 self.policy_parameters_to_max_likelihood_action(parameters))
 
             # constructing V loss
-            v1 = self.getV1(self.O1)
+            v1 = self.getV1(step.o1)
             self.v1 = v1
-            q1 = self.getQ(self.O1, A_sampled1)
+            q1 = self.getQ(step.o1, A_sampled1)
             log_pi_sampled1 = self.policy_parameters_to_log_prob(A_sampled1, parameters)
             log_pi_sampled1 *= self.entropy_scale  # type: tf.Tensor
             self.V_loss = V_loss = tf.reduce_mean(
                 0.5 * tf.square(v1 - (q1 - log_pi_sampled1)))
 
             # constructing Q loss
-            self.v2 = v2 = self.getV2(self.O2)
-            self.q1 = q = self.getQ(self.O1, self.A)
-            not_done = 1 - self.T  # type: tf.Tensor
-            self.q_target = q_target = self.R + gamma * not_done * v2
+            self.v2 = v2 = self.getV2(step.o2)
+            self.q1 = q = self.getQ(step.o1, step.a)
+            not_done = 1 - step.t  # type: tf.Tensor
+            self.q_target = q_target = step.r + gamma * not_done * v2
             self.Q_error = tf.square(q - q_target)
             self.Q_loss = Q_loss = tf.reduce_mean(0.5 * self.Q_error)
 
             # constructing pi loss
-            q2 = self.getQ(self.O1, A_sampled2)
+            q2 = self.getQ(step.o1, A_sampled2)
             log_pi_sampled2 = self.policy_parameters_to_log_prob(A_sampled1, parameters)
             log_pi_sampled2 *= self.entropy_scale  # type: tf.Tensor
             self.pi_loss = pi_loss = tf.reduce_mean(
                 log_pi_sampled2 * tf.stop_gradient(log_pi_sampled2 - q2 + v1))
 
-            self.train_V, self.V_grad = update(network=self.v1_network, loss=V_loss)
-            self.train_Q, self.Q_grad = update(network=self.q_network, loss=Q_loss)
-            self.train_pi, self.pi_grad = update(network=self.pi_network, loss=pi_loss)
+            step.train_V, self.V_grad = update(network=self.v1_network, loss=V_loss)
+            step.train_Q, self.Q_grad = update(network=self.q_network, loss=Q_loss)
+            step.train_pi, self.pi_grad = update(network=self.pi_network, loss=pi_loss)
 
             # placeholders
             soft_update_xi_bar_ops = [
@@ -130,11 +131,11 @@ class AbstractAgent:
 
     def train_step(self, step: Step) -> dict:
         feed_dict = {
-            self.O1: step.o1,
-            self.A: step.a,
-            self.R: np.array(step.r) * self.reward_scale,
-            self.O2: step.o2,
-            self.T: step.t,
+            self.o1: step.o1,
+            self.a:  step.a,
+            self.r:  np.array(step.r) * self.reward_scale,
+            self.o2: step.o2,
+            self.t:  step.t,
         }
 
         return self.sess.run(
@@ -165,26 +166,26 @@ class AbstractAgent:
 
     def get_actions(self, o: ArrayLike, sample: bool = True, state=None) -> NetworkOutput:
         A = self.A_sampled1 if sample else self.A_max_likelihood
-        return NetworkOutput(output=self.sess.run(A, {self.O1: [o]})[0], state=0)
+        return NetworkOutput(output=self.sess.run(A, {self.o1: [o]})[0], state=0)
 
     def get_v1(self, o1: np.ndarray):
-        return self.sess.run(self.v1, feed_dict={self.O1: [o1]})[0]
+        return self.sess.run(self.v1, feed_dict={self.o1: [o1]})[0]
 
     def get_value(self, step: Step):
         return self.sess.run(
             self.v1, feed_dict={
-                self.O1: step.o1,
+                self.o1: step.o1,
             })
 
     def td_error(self, step: Step):
         return self.sess.run(
             self.Q_error,
             feed_dict={
-                self.O1: step.o1,
-                self.A: step.a,
-                self.R: step.r,
-                self.O2: step.o2,
-                self.T: step.t
+                self.o1: step.o1,
+                self.a:  step.a,
+                self.r:  step.r,
+                self.o2: step.o2,
+                self.t:  step.t
             })
 
     @abstractmethod

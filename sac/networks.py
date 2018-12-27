@@ -84,11 +84,11 @@ class LstmAgent(AbstractAgent):
             feed_dict = {
                 **self.state_feed(step.s),
                 **{
-                    self.O1: step.o1,
-                    self.A: step.a,
-                    self.R: np.array(step.r) * self.reward_scale,
-                    self.O2: step.o2,
-                    self.T: step.t
+                    self.o1: step.o1,
+                    self.a:  step.a,
+                    self.r:  np.array(step.r) * self.reward_scale,
+                    self.o2: step.o2,
+                    self.t:  step.t
                 }
             }
         return super().train_step(step)
@@ -104,7 +104,7 @@ class LstmAgent(AbstractAgent):
             -> Tuple[np.ndarray, LSTMStateTuple]:
         assert len(np.shape(o)) == 1
         assert np.shape(state) == np.shape(self.initial_state)
-        feed_dict = {**{self.O1: [[o]]}, **self.state_feed(state)}
+        feed_dict = {**{self.o1: [[o]]}, **self.state_feed(state)}
         A = self.A_sampled1 if sample else self.A_max_likelihood
         return self.sess.run([A[0], self.S_new], feed_dict)
 
