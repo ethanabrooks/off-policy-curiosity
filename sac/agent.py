@@ -188,31 +188,33 @@ class AbstractAgent:
             })
 
     @abstractmethod
-    def pi_network(self, inputs: tf.Tensor) -> tf.Tensor:
+    def pi_network(self, inputs: tf.Tensor) -> NetworkOutput:
         pass
 
-    @abstractmethod
-    def produce_policy_parameters(self, a_shape: int,
-                                  processed_o: tf.Tensor) -> tf.Tensor:
+    def get_policy_params(self, obs: tf.Tensor) -> tf.Tensor:
         pass
 
+    @staticmethod
     @abstractmethod
-    def policy_parameters_to_log_prob(self, a: tf.Tensor,
-                                      parameters: tf.Tensor) -> tf.Tensor:
+    def policy_parameters_to_log_prob(a: tf.Tensor, parameters: tf.Tensor) -> tf.Tensor:
         pass
 
+    @staticmethod
     @abstractmethod
-    def policy_parameters_to_sample(self, parameters: tf.Tensor) -> tf.Tensor:
+    def policy_parameters_to_sample(parameters: tf.Tensor) -> tf.Tensor:
         pass
 
+    @staticmethod
     @abstractmethod
-    def policy_parameters_to_max_likelihood_action(self, parameters) -> tf.Tensor:
+    def policy_parameters_to_max_likelihood_action(parameters) -> tf.Tensor:
         pass
 
+    @staticmethod
     @abstractmethod
-    def preprocess_action(self, action_sample: tf.Tensor) -> tf.Tensor:
+    def preprocess_action(action_sample: tf.Tensor) -> tf.Tensor:
         pass
 
+    @staticmethod
     @abstractmethod
-    def entropy_from_params(self, params: tf.Tensor) -> tf.Tensor:
+    def entropy_from_params(params: tf.Tensor) -> tf.Tensor:
         pass
