@@ -29,10 +29,8 @@ setup(
         'mountaincar=scripts.mountaincar:cli',
         'unsupervised=scripts.unsupervised:cli',
         'mouse-control=scripts.mouse_control:cli',
-        'crawl=scripts.crawl_events:main',
         'table=scripts.table:main',
         'plot=scripts.plot:main',
-        'tb=scripts.tensorboard:main',
     ]),
     scripts=['bin/load', 'bin/filter', 'bin/correlate'],
     install_requires=[
