@@ -83,11 +83,6 @@ class AbstractAgent:
             A_sampled2 = self.policy_parameters_to_sample(parameters)
             self.A_sampled1 = A_sampled1
 
-            def pi_network_log_prob(a: tf.Tensor, name: str, _reuse: bool) \
-                    -> tf.Tensor:
-                with tf.variable_scope(name, reuse=_reuse):
-                    return self.policy_parameters_to_log_prob(a, parameters)
-
             # generate actions:
             self.A_max_likelihood = tf.stop_gradient(
                 self.policy_parameters_to_max_likelihood_action(parameters))
@@ -99,7 +94,7 @@ class AbstractAgent:
                 self.q_network(
                     tf.concat([self.O1, self.transform_action_sample(A_sampled1)], axis=1)),
                 [-1])
-            log_pi_sampled1 = pi_network_log_prob(A_sampled1, 'pi', _reuse=True)
+            log_pi_sampled1 = self.policy_parameters_to_log_prob(A_sampled1, parameters)
             log_pi_sampled1 *= entropy_scale  # type: tf.Tensor
             self.V_loss = V_loss = tf.reduce_mean(
                 0.5 * tf.square(v1 - (q1 - log_pi_sampled1)))
@@ -119,7 +114,7 @@ class AbstractAgent:
                 self.q_network(
                     tf.concat([self.O1, self.transform_action_sample(A_sampled2)], axis=1)),
                 [-1])
-            log_pi_sampled2 = pi_network_log_prob(A_sampled2, 'pi', _reuse=True)
+            log_pi_sampled2 = self.policy_parameters_to_log_prob(A_sampled1, parameters)
             log_pi_sampled2 *= entropy_scale  # type: tf.Tensor
             self.pi_loss = pi_loss = tf.reduce_mean(
                 log_pi_sampled2 * tf.stop_gradient(log_pi_sampled2 - q2 + v1))
