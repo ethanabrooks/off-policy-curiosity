@@ -34,7 +34,7 @@ class SACXAgent(AbstractAgent):
         with tf.variable_scope('pi'):
             return self.actor_network(o)
 
-    def q_network(self, o: tf.Tensor, a: tf.Tensor, name: str, reuse: bool = None):
+    def getQ(self, o: tf.Tensor, a: tf.Tensor, name: str, reuse: bool = None):
         with tf.variable_scope(name, reuse=reuse):
             oa = tf.concat([o, a], axis=1)
             return tf.reshape(
@@ -93,7 +93,7 @@ class LstmAgent(AbstractAgent):
             }
         return super().train_step(step)
 
-    def q_network(self, o: tf.Tensor, a: tf.Tensor, name: str, reuse: bool = None) \
+    def getQ(self, o: tf.Tensor, a: tf.Tensor, name: str, reuse: bool = None) \
             -> tf.Tensor:
         with tf.variable_scope(name, reuse=reuse):
             o = self.network(o).output

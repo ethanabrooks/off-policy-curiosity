@@ -88,32 +88,24 @@ class AbstractAgent:
                 self.policy_parameters_to_max_likelihood_action(parameters))
 
             # constructing V loss
-            v1 = tf.reshape(self.v1_network(self.O1), [-1])
+            v1 = self.getV1(self.O1)
             self.v1 = v1
-            q1 = tf.reshape(
-                self.q_network(
-                    tf.concat([self.O1, self.transform_action_sample(A_sampled1)], axis=1)),
-                [-1])
+            q1 = self.getQ(self.O1, A_sampled1)
             log_pi_sampled1 = self.policy_parameters_to_log_prob(A_sampled1, parameters)
             log_pi_sampled1 *= entropy_scale  # type: tf.Tensor
             self.V_loss = V_loss = tf.reduce_mean(
                 0.5 * tf.square(v1 - (q1 - log_pi_sampled1)))
 
             # constructing Q loss
-            self.v2 = v2 = tf.reshape(self.v2_network(self.O2), [-1])
-            self.q1 = q = tf.reshape(
-                self.q_network(tf.concat([self.O1, self.transform_action_sample(A)], axis=1)),
-                [-1])
+            self.v2 = v2 = self.getV2(self.O2)
+            self.q1 = q = self.getQ(self.O1, A)
             not_done = 1 - T  # type: tf.Tensor
             self.q_target = q_target = R + gamma * not_done * v2
             self.Q_error = tf.square(q - q_target)
             self.Q_loss = Q_loss = tf.reduce_mean(0.5 * self.Q_error)
 
             # constructing pi loss
-            q2 = tf.reshape(
-                self.q_network(
-                    tf.concat([self.O1, self.transform_action_sample(A_sampled2)], axis=1)),
-                [-1])
+            q2 = self.getQ(self.O1, A_sampled2)
             log_pi_sampled2 = self.policy_parameters_to_log_prob(A_sampled1, parameters)
             log_pi_sampled2 *= entropy_scale  # type: tf.Tensor
             self.pi_loss = pi_loss = tf.reduce_mean(
@@ -125,8 +117,9 @@ class AbstractAgent:
 
             # placeholders
             soft_update_xi_bar_ops = [
-                tf.assign(xbar, tau * x + (1 - tau) * xbar) for (xbar, x)
-                in zip(self.v2_network.trainable_variables, self.v1_network.trainable_variables)
+                tf.assign(xbar, tau * x + (1 - tau) * xbar)
+                for (xbar, x) in zip(self.v2_network.trainable_variables,
+                                     self.v1_network.trainable_variables)
             ]
             self.soft_update_xi_bar = tf.group(*soft_update_xi_bar_ops)
             # self.check = tf.add_check_numerics_ops()
@@ -138,10 +131,10 @@ class AbstractAgent:
     def train_step(self, step: Step) -> dict:
         feed_dict = {
             self.O1: step.o1,
-            self.A: step.a,
-            self.R: np.array(step.r) * self.reward_scale,
+            self.A:  step.a,
+            self.R:  np.array(step.r) * self.reward_scale,
             self.O2: step.o2,
-            self.T: step.t,
+            self.T:  step.t,
         }
 
         return self.sess.run(
@@ -159,6 +152,16 @@ class AbstractAgent:
                 train_Q=self.train_Q,
                 train_pi=self.train_pi,
             ), feed_dict)
+
+    def getV1(self, o):
+        return tf.reshape(self.v1_network(o), [-1])
+
+    def getV2(self, o):
+        return tf.reshape(self.v2_network(o), [-1])
+
+    def getQ(self, o, a):
+        return tf.reshape(self.q_network(tf.concat([o, self.transform_action_sample(a)],
+                                                   axis=1)), [-1])
 
     def get_actions(self, o: ArrayLike, sample: bool = True, state=None) -> NetworkOutput:
         A = self.A_sampled1 if sample else self.A_max_likelihood
@@ -178,10 +181,10 @@ class AbstractAgent:
             self.Q_error,
             feed_dict={
                 self.O1: step.o1,
-                self.A: step.a,
-                self.R: step.r,
+                self.A:  step.a,
+                self.R:  step.r,
                 self.O2: step.o2,
-                self.T: step.t
+                self.T:  step.t
             })
 
     def network(self, inputs: tf.Tensor):
