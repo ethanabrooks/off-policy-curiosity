@@ -1,11 +1,11 @@
-# third party
+import argparse
+
 import click
 import gym
-import tensorflow as tf
+from utils.argparse import parse_groups
 
-# first party
-from sac.networks import MLPAgent
 from sac.train import Trainer
+from scripts.util import add_trainer_args, add_network_args, add_train_args
 
 
 def check_probability(ctx, param, value):
@@ -14,39 +14,26 @@ def check_probability(ctx, param, value):
     return value
 
 
-@click.command()
-@click.option('--env', default='CartPole-v0')
-@click.option('--seed', default=0, type=int)
-@click.option('--n-layers', default=3, type=int)
-@click.option('--layer-size', default=256, type=int)
-@click.option('--learning-rate', default=3e-4, type=float)
-@click.option('--buffer-size', default=1e5, type=int)
-@click.option('--num-train-steps', default=1, type=int)
-@click.option('--batch-size', default=32, type=int)
-@click.option('--reward-scale', default=1., type=float)
-@click.option('--entropy-scale', default=1., type=float)
-@click.option('--logdir', default=None, type=str)
-@click.option('--save-path', default=None, type=str)
-@click.option('--load-path', default=None, type=str)
-@click.option('--render', is_flag=True)
-def cli(env, seed, buffer_size, n_layers, layer_size, learning_rate, reward_scale,
-        entropy_scale, batch_size, num_train_steps, logdir, save_path, load_path, render):
-    Trainer(
-        env=gym.make(env),
-        base_agent=MLPAgent,
-        seq_len=0,
-        device_num=1,
-        seed=seed,
-        buffer_size=buffer_size,
-        activation=tf.nn.relu,
-        n_layers=n_layers,
-        layer_size=layer_size,
-        learning_rate=learning_rate,
-        entropy_scale=entropy_scale,
-        reward_scale=reward_scale,
-        batch_size=batch_size,
-        grad_clip=None,
-        n_train_steps=num_train_steps)
+def main(
+        env,
+        trainer_args,
+        train_args,
+        render,
+        network_args,
+):
+    trainer = Trainer(
+        env=env, network_args=network_args, **trainer_args)
+    trainer.train(**train_args, render=render)
+
+
+def cli():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--render', action='store_true')
+    parser.add_argument('--env', type=gym.make, default=gym.make('CartPole-v0'))
+    add_trainer_args(parser=parser.add_argument_group('trainer_args'))
+    add_network_args(parser=parser.add_argument_group('network_args'))
+    add_train_args(parser=parser.add_argument_group('train_args'))
+    main(**(parse_groups(parser)))
 
 
 if __name__ == '__main__':

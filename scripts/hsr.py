@@ -5,15 +5,15 @@ from pathlib import Path
 # third party
 from gym.wrappers import TimeLimit
 import tensorflow as tf
+from hsr.util import env_wrapper, xml_setter
+from utils.argparse import parse_activation, parse_space, parse_vector, parse_groups, ACTIVATIONS
 
 # first party
-from hsr.util import env_wrapper, xml_setter
-
-from utils.argparse import parse_activation, parse_space, parse_vector, cast_to_int, \
-    parse_groups, ACTIVATIONS
 from sac.hindsight_wrapper import HSRHindsightWrapper, MBHSRHindsightWrapper
 from hsr.env import HSREnv, MoveGripperEnv, MultiBlockHSREnv
 from sac.train import HindsightTrainer, Trainer
+from scripts.util import add_network_args, add_trainer_args, add_train_args, \
+    add_hindsight_args
 
 ENVIRONMENTS = dict(
     multi_block=MultiBlockHSREnv,
@@ -53,38 +53,6 @@ def main(
         trainer = Trainer(
             env=env, render=False, network_args=network_args, **trainer_args)
     trainer.train(**train_args)
-
-
-def add_train_args(parser):
-    parser.add_argument('--logdir', type=Path, default=None)
-    parser.add_argument('--load-path', type=str, default=None)
-    parser.add_argument('--save-threshold', type=int, default=None)
-
-
-def add_hindsight_args(parser):
-    parser.add_argument('--n-goals', type=int)
-
-
-def add_network_args(parser):
-    parser.add_argument(
-        '--activation',
-        type=parse_activation,
-        default=tf.nn.relu,
-        choices=ACTIVATIONS.values())
-    parser.add_argument('--n-hidden', type=int, required=True)
-    parser.add_argument('--layer-size', type=int, required=True)
-
-
-def add_trainer_args(parser):
-    parser.add_argument('--seed', type=int, required=True)
-    parser.add_argument('--buffer-size', type=cast_to_int, required=True)
-    parser.add_argument('--n-train-steps', type=int, required=True)
-    parser.add_argument('--batch-size', type=int, required=True)
-    scales = parser.add_mutually_exclusive_group(required=True)
-    scales.add_argument('--reward-scale', type=float, default=1)
-    scales.add_argument('--entropy-scale', type=float, default=1)
-    parser.add_argument('--learning-rate', type=float, required=True)
-    parser.add_argument('--grad-clip', type=float, required=True)
 
 
 def add_embed_args(parser):
