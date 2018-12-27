@@ -59,9 +59,10 @@ class AbstractAgent:
 
         self.O1 = tf.placeholder(tf.float32, [None, o_size], name='O1')
         self.O2 = tf.placeholder(tf.float32, [None, o_size], name='O2')
-        self.A = A = tf.placeholder(tf.float32, [None, a_size], name='A')
-        self.R = R = tf.placeholder(tf.float32, [None], name='R')
-        self.T = T = tf.placeholder(tf.float32, [None], name='T')
+        self.A = tf.placeholder(tf.float32, [None, a_size], name='A')
+        self.R = tf.placeholder(tf.float32, [None], name='R')
+        self.T = tf.placeholder(tf.float32, [None], name='T')
+
         gamma = tf.constant(0.99)
         tau = 0.01
 
@@ -77,7 +78,7 @@ class AbstractAgent:
             return op, norm
 
         with tf.variable_scope('agent'):
-            parameters = self.produce_policy_parameters(a_size, self.O1)
+            parameters = self.produce_policy_parameters(self.a_size, self.O1)
             A_sampled1 = self.policy_parameters_to_sample(parameters)
             A_sampled2 = self.policy_parameters_to_sample(parameters)
             self.A_sampled1 = A_sampled1
@@ -91,22 +92,22 @@ class AbstractAgent:
             self.v1 = v1
             q1 = self.getQ(self.O1, A_sampled1)
             log_pi_sampled1 = self.policy_parameters_to_log_prob(A_sampled1, parameters)
-            log_pi_sampled1 *= entropy_scale  # type: tf.Tensor
+            log_pi_sampled1 *= self.entropy_scale  # type: tf.Tensor
             self.V_loss = V_loss = tf.reduce_mean(
                 0.5 * tf.square(v1 - (q1 - log_pi_sampled1)))
 
             # constructing Q loss
             self.v2 = v2 = self.getV2(self.O2)
-            self.q1 = q = self.getQ(self.O1, A)
-            not_done = 1 - T  # type: tf.Tensor
-            self.q_target = q_target = R + gamma * not_done * v2
+            self.q1 = q = self.getQ(self.O1, self.A)
+            not_done = 1 - self.T  # type: tf.Tensor
+            self.q_target = q_target = self.R + gamma * not_done * v2
             self.Q_error = tf.square(q - q_target)
             self.Q_loss = Q_loss = tf.reduce_mean(0.5 * self.Q_error)
 
             # constructing pi loss
             q2 = self.getQ(self.O1, A_sampled2)
             log_pi_sampled2 = self.policy_parameters_to_log_prob(A_sampled1, parameters)
-            log_pi_sampled2 *= entropy_scale  # type: tf.Tensor
+            log_pi_sampled2 *= self.entropy_scale  # type: tf.Tensor
             self.pi_loss = pi_loss = tf.reduce_mean(
                 log_pi_sampled2 * tf.stop_gradient(log_pi_sampled2 - q2 + v1))
 
@@ -125,7 +126,7 @@ class AbstractAgent:
             self.entropy = tf.reduce_mean(self.entropy_from_params(parameters))
             # ensure that xi and xi_bar are the same at initialization
 
-            sess.run(tf.global_variables_initializer())
+            self.sess.run(tf.global_variables_initializer())
 
     def train_step(self, step: Step) -> dict:
         feed_dict = {
