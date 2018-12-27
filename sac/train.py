@@ -190,10 +190,10 @@ class Trainer:
                     }))
         return counter
 
-    def get_actions(self, o1, s, sample: bool):
+    def get_actions(self, o1, sample: bool):
         obs = self.preprocess_obs(o1)
         # assert self.observation_space.contains(obs)
-        return self.agent.get_actions(o=obs, state=s, sample=sample)
+        return self.agent.get_actions(o=obs, sample=sample)
 
     def build_agent(self,
                     observation_space: gym.Space,
