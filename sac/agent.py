@@ -56,16 +56,15 @@ class AbstractAgent:
                 learning_rate=embed_args.pop('learning_rate', learning_rate))
 
     @tf.contrib.eager.defun
-    def _get_actions(self, o: tf.Tensor, sample: bool = True) -> np.array:
-        parameters = self.get_policy_params(o)
+    def _get_actions(self, o1: tf.Tensor, sample: bool = True) -> np.array:
+        parameters = self.get_policy_params(o1)
+        self.A_sampled1 = self.policy_parameters_to_sample(parameters)
+        self.A_max_likelihood = self.policy_parameters_to_max_likelihood_action(
+            parameters)
         if sample:
-            return self.policy_parameters_to_sample(parameters)
+            return self.A_sampled1
         else:
-            return self.policy_parameters_to_max_likelihood_action(parameters)
-
-    def get_actions(self, o: ArrayLike, sample: bool = True) -> np.array:
-        o = tf.convert_to_tensor(o.reshape(1, -1), dtype=tf.float32)
-        return self._get_actions(o).numpy().reshape(-1)
+            return self.A_max_likelihood
 
     @tf.contrib.eager.defun
     def _train_step(self, step: Step):
@@ -145,6 +144,10 @@ class AbstractAgent:
     def getQ(self, o, a):
         return tf.reshape(
             self.q_network(tf.concat([o, self.preprocess_action(a)], axis=1)), [-1])
+
+    def get_actions(self, o: ArrayLike, sample: bool = True) -> np.array:
+        o = tf.convert_to_tensor(o.reshape(1, -1), dtype=tf.float32)
+        return self._get_actions(o).numpy().reshape(-1)
 
     def train_step(self, step: Step) -> dict:
         step = Step(*[tf.convert_to_tensor(x, dtype=tf.float32) for x in step])
