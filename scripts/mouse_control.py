@@ -12,7 +12,8 @@ import numpy as np
 # first party
 from environments.hsr import MoveGripperEnv, print1
 from mujoco import ObjType
-from scripts.hsr import make_box, mutate_xml
+from scripts.hsr import mutate_xml
+from sac.util import make_box
 
 saved_pos = None
 

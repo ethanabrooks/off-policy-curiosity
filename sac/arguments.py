@@ -13,7 +13,7 @@ from gym.spaces import Box
 import numpy as np
 import tensorflow as tf
 
-from sac.utils import parametric_relu
+from sac.util import parametric_relu
 
 # PARSING
 

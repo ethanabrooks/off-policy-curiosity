@@ -12,7 +12,7 @@ from environments.hierarchical_wrapper import (FrozenLakeHierarchicalWrapper, Hi
 from environments.hindsight_wrapper import Observation
 from sac.agent import NetworkOutput
 from sac.train import Agents, Trainer
-from sac.utils import Step, vectorize
+from sac.util import Step, vectorize
 
 
 class HierarchicalTrainer(Trainer):

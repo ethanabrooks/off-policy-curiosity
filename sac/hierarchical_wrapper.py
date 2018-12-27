@@ -7,7 +7,7 @@ import numpy as np
 
 # first party
 from environments.hindsight_wrapper import FrozenLakeHindsightWrapper, HindsightWrapper
-from sac.utils import vectorize
+from sac.util import vectorize
 
 
 class HierarchicalWrapper(HindsightWrapper):

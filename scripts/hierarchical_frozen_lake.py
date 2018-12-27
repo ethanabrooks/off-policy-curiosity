@@ -8,7 +8,7 @@ from environments.frozen_lake import FrozenLakeEnv
 from environments.hierarchical_wrapper import FrozenLakeHierarchicalWrapper
 from sac.hierarchical_trainer import HierarchicalTrainer
 from sac.networks import MLPAgent
-from sac.utils import create_sess
+from sac.util import create_sess
 
 
 def check_probability(ctx, param, value):

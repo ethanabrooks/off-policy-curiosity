@@ -1,11 +1,15 @@
 # stdlib
+import argparse
+import re
 from collections import namedtuple
-from typing import Any, Callable, Iterable, Sequence, Union
+from itertools import filterfalse
+from typing import Any, Callable, Iterable, Sequence, Union, Tuple
 
 # third party
 import gym
 import numpy as np
 import tensorflow as tf
+from gym import spaces
 from tensorflow.python import debug as tf_debug
 
 Shape = Union[int, Sequence[int]]
@@ -293,3 +297,67 @@ def make_network(input_size: int, output_size: int, n_hidden: int, layer_size: i
                 activations,
             )
     ])
+
+
+def parametric_relu(_x):
+    alphas = tf.get_variable(
+        'alpha',
+        _x.get_shape()[-1],
+        initializer=tf.constant_initializer(0.0),
+        dtype=tf.float32)
+    pos = tf.nn.relu(_x)
+    neg = alphas * (_x - abs(_x)) * 0.5
+    return pos + neg
+
+
+def make_box(*tuples: Tuple[float, float]):
+    low, high = map(np.array, zip(*[(map(float, m)) for m in tuples]))
+    return spaces.Box(low=low, high=high, dtype=np.float32)
+
+
+def parse_space(dim: int):
+    def _parse_space(arg: str):
+        regex = re.compile('\((-?[\.\d]+),(-?[\.\d]+)\)')
+        matches = regex.findall(arg)
+        if len(matches) != dim:
+            raise argparse.ArgumentTypeError(f'Arg {arg} must have {dim} substrings '
+                                             f'matching pattern {regex}.')
+        return make_box(*matches)
+
+    return _parse_space
+
+
+def parse_vector(length: int, delim: str):
+    def _parse_vector(arg: str):
+        vector = tuple(map(float, arg.split(delim)))
+        if len(vector) != length:
+            raise argparse.ArgumentError(f'Arg {arg} must include {length} float values'
+                                         f'delimited by "{delim}".')
+        return vector
+
+    return _parse_vector
+
+
+def cast_to_int(arg: str):
+    return int(float(arg))
+
+
+def parse_groups(parser: argparse.ArgumentParser):
+    args = parser.parse_args()
+
+    def is_optional(group):
+        return group.title == 'optional arguments'
+
+    def parse_group(group):
+        # noinspection PyProtectedMember
+        return {a.dest: getattr(args, a.dest, None) for a in group._group_actions}
+
+    # noinspection PyUnresolvedReferences,PyProtectedMember
+    groups = [g for g in parser._action_groups if g.title != 'positional arguments']
+    optional = filter(is_optional, groups)
+    not_optional = filterfalse(is_optional, groups)
+
+    kwarg_dicts = {group.title: parse_group(group) for group in not_optional}
+    kwargs = (parse_group(next(optional)))
+    del kwargs['help']
+    return {**kwarg_dicts, **kwargs}
