@@ -11,7 +11,7 @@ from environments.hierarchical_wrapper import (FrozenLakeHierarchicalWrapper, Hi
                                                ShiftHierarchicalWrapper)
 from environments.shift import ShiftEnv
 from sac.hierarchical_trainer import HierarchicalTrainer
-from sac.networks import MlpAgent
+from sac.networks import MLPAgent
 from sac.utils import create_sess
 from scripts.lift import env_wrapper, put_in_xml_setter
 from scripts.shift import parse_coordinate
@@ -139,7 +139,7 @@ def cli(
 
     kwargs = dict(
         sess=create_sess(),
-        base_agent=MlpAgent,
+        base_agent=MLPAgent,
         seq_len=0,
         device_num=1,
         seed=seed,

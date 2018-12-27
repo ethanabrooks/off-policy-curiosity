@@ -12,12 +12,13 @@ from gym import Wrapper, spaces
 from gym.wrappers import TimeLimit
 import numpy as np
 import tensorflow as tf
+from tensorflow.contrib import summary
 
 from environments.hindsight_wrapper import HindsightWrapper
 from sac.agent import AbstractAgent
 from sac.policies import CategoricalPolicy, GaussianPolicy
 from sac.replay_buffer import ReplayBuffer
-from sac.utils import Obs, Shape, Step, create_sess, get_space_attrs, space_to_size, unwrap_env, vectorize
+from sac.utils import Obs, Shape, Step, get_space_attrs, space_to_size, unwrap_env, vectorize
 
 Agents = namedtuple('Agents', 'train act')
 
@@ -32,18 +33,15 @@ class Trainer:
                  buffer_size: int,
                  batch_size: int,
                  n_train_steps: int,
-                 sess: tf.Session = None,
                  preprocess_func=None,
-                 action_space=None,
-                 observation_space=None,
                  **kwargs):
+        tf.enable_eager_execution()
 
         if seed is not None:
             np.random.seed(seed)
             tf.set_random_seed(seed)
             env.seed(seed)
 
-        self.sess = sess or create_sess()
         self.episodes = None
         self.episode_count = None
         self.n_train_steps = n_train_steps
@@ -65,30 +63,31 @@ class Trainer:
             ],
             dtype=np.float32)
 
-        self.global_step = tf.Variable(0, name='global_step', trainable=False)
-        self.episode_time_step = tf.placeholder(tf.int32, name='episode_time_steps')
-        self.increment_global_step = tf.assign_add(self.global_step,
-                                                   self.episode_time_step)
-
         self.action_space = env.action_space
         self.agent = self.build_agent(
-            observation_space=observation_space,
-            action_space=self.action_space,
-            sess=self.sess,
-            **kwargs)
+            observation_space=observation_space, action_space=self.action_space, **kwargs)
+        self.time_steps = tf.train.get_or_create_global_step()
 
     def train(self,
               load_path: Path,
               logdir: Path,
               render: bool = False,
               save_threshold: int = None):
-        saver = tf.train.Saver()
-        tb_writer = None
-        if load_path:
-            saver.restore(self.sess, load_path)
-            print("Model restored from", load_path)
+
         if logdir:
-            tb_writer = tf.summary.FileWriter(logdir=str(logdir), graph=self.sess.graph)
+            writer = summary.create_file_writer(str(logdir))
+            writer.set_as_default()
+
+        # writer = None
+        # if load_path:
+        # raise NotImplementedError
+        # # TODO
+        # saver.restore(self.sess, load_path)
+        # print("Model restored from", load_path)
+        # if logdir:
+        # writer = tf.summary.FileWriter(str(logdir), self.sess.graph) TODO
+        # config = projector.ProjectorConfig()
+        # projector.visualize_embeddings(writer, config)
 
         past_returns = deque(maxlen=save_threshold)
         best_average = -np.inf
@@ -112,31 +111,31 @@ class Trainer:
                 else:
                     best_average = new_average
 
-            if logdir and episodes % 10 == 1 and passes_save_threshold:
-                print("model saved in path:", saver.save(
-                    self.sess, save_path=str(logdir)))
-                saver.save(self.sess, str(logdir).replace('<episode>', str(episodes)))
+            # TODO
+            # if logdir and episodes % 10 == 1 and passes_save_threshold:
+            # save_path = saver.save(self.sess, str(logdir.joinpath('model.ckpt')))
+            # print("model saved in path:", saver.save(self.sess, save_path=save_path))
+            # embed_save_path = embed_saver.save(
+            #     self.sess, str(logdir.joinpath('embed', 'model.ckpt')))
+            # print("embeddings saved in path:", embed_save_path)
+            # saver.save(self.sess, str(save_path).replace('<episode>', str(episodes)))
+            self.time_steps.assign_add(self.episode_count['time_steps'])
 
-            time_steps, _ = self.sess.run(
-                [self.global_step, self.increment_global_step],
-                {self.episode_time_step: self.episode_count['time_steps']})
             print_statement = f'({"EVAL" if self.is_eval_period() else "TRAIN"}) ' \
                               f'Episode: {episodes}\t ' \
-                              f'Time Steps: {time_steps}\t ' \
+                              f'Time Steps: {int(self.time_steps)}\t ' \
                               f'Reward: {episode_return}\t ' \
                               f'Success: {self.episode_count[SUCCESS_KWD]}'
             print(print_statement)
 
             if logdir:
-                summary = tf.Summary()
-                if self.is_eval_period():
-                    summary.value.add(tag='eval return', simple_value=episode_return)
-                else:
-                    for k, v in self.episode_count.items():
-                        if np.isscalar(v):
-                            summary.value.add(tag=k.replace('_', ' '), simple_value=v)
-                tb_writer.add_summary(summary, time_steps)
-                tb_writer.flush()
+                with tf.contrib.summary.record_summaries_every_n_global_steps(1):
+                    if self.is_eval_period():
+                        summary.scalar('eval return', episode_return)
+                    else:
+                        for k, v in self.episode_count.items():
+                            if np.isscalar(v):
+                                summary.scalar(k.replace('_', ' '), v)
 
     def is_eval_period(self):
         return self.episodes % 100 == 0
