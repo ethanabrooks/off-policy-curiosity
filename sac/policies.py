@@ -17,12 +17,12 @@ class GaussianPolicy(AbstractAgent):
         args = self.network_args.copy()
         args.update(n_hidden=args['n_hidden'] + 1)
         self.pi_network = make_network(o_size, 2 * a_size, **args)
-        super().__init__(network_args=network_args, o_size=o_size, a_size=a_size,
-                         **kwargs)
+        super().__init__(
+            network_args=network_args, o_size=o_size, a_size=a_size, **kwargs)
 
     def produce_policy_parameters(self, a_size: int, o1: tf.Tensor):
         processed_s = self.pi_network(o1)
-        mu, sigma_param = tf.split(processed_s, 2 , axis=1)
+        mu, sigma_param = tf.split(processed_s, 2, axis=1)
         return mu, tf.sigmoid(sigma_param) + 0.0001
 
     @staticmethod
@@ -32,7 +32,7 @@ class GaussianPolicy(AbstractAgent):
         # print(log_prob)
         return tf.reduce_sum(
             log_prob, axis=1) - tf.reduce_sum(
-            tf.log(1 - tf.square(tf.tanh(u)) + EPS), axis=1)
+                tf.log(1 - tf.square(tf.tanh(u)) + EPS), axis=1)
 
     @staticmethod
     def policy_parameters_to_max_likelihood_action(parameters):

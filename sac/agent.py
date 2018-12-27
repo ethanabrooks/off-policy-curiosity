@@ -2,7 +2,6 @@
 from abc import abstractmethod
 from collections import namedtuple
 import enum
-from typing import List
 
 # third party
 import numpy as np
@@ -131,10 +130,10 @@ class AbstractAgent:
     def train_step(self, step: Step) -> dict:
         feed_dict = {
             self.O1: step.o1,
-            self.A:  step.a,
-            self.R:  np.array(step.r) * self.reward_scale,
+            self.A: step.a,
+            self.R: np.array(step.r) * self.reward_scale,
             self.O2: step.o2,
-            self.T:  step.t,
+            self.T: step.t,
         }
 
         return self.sess.run(
@@ -160,8 +159,8 @@ class AbstractAgent:
         return tf.reshape(self.v2_network(o), [-1])
 
     def getQ(self, o, a):
-        return tf.reshape(self.q_network(tf.concat([o, self.transform_action_sample(a)],
-                                                   axis=1)), [-1])
+        return tf.reshape(
+            self.q_network(tf.concat([o, self.transform_action_sample(a)], axis=1)), [-1])
 
     def get_actions(self, o: ArrayLike, sample: bool = True, state=None) -> NetworkOutput:
         A = self.A_sampled1 if sample else self.A_max_likelihood
@@ -181,10 +180,10 @@ class AbstractAgent:
             self.Q_error,
             feed_dict={
                 self.O1: step.o1,
-                self.A:  step.a,
-                self.R:  step.r,
+                self.A: step.a,
+                self.R: step.r,
                 self.O2: step.o2,
-                self.T:  step.t
+                self.T: step.t
             })
 
     def network(self, inputs: tf.Tensor):
