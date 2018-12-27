@@ -135,7 +135,7 @@ class Trainer:
                     else:
                         for k, v in self.episode_count.items():
                             if np.isscalar(v):
-                                summary.scalar(k.replace('_', ' '), v)
+                                summary.scalar(k.replace('_', ' '), float(v))
 
     def is_eval_period(self):
         return self.episodes % 100 == 0
