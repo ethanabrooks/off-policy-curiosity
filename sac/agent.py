@@ -8,7 +8,7 @@ import numpy as np
 import tensorflow as tf
 
 # first party
-from sac.utils import ArrayLike, Step, make_network, mlp
+from sac.utils import ArrayLike, Step, make_network
 
 NetworkOutput = namedtuple('NetworkOutput', 'output state')
 
@@ -26,7 +26,6 @@ class ModelType(enum.Enum):
 class AbstractAgent:
     def __init__(
             self,
-            sess,
             a_size: int,
             o_size: int,
             reward_scale: float,
@@ -44,7 +43,6 @@ class AbstractAgent:
         self.entropy_scale = entropy_scale
         self.a_size = a_size
         self.reward_scale = reward_scale
-        self.sess = sess
 
         self.q_network = make_network(a_size + o_size, 1, **network_args)
         self.v1_network = make_network(o_size, 1, **network_args)
@@ -57,32 +55,34 @@ class AbstractAgent:
             self.embed_optimizer = tf.train.AdamOptimizer(
                 learning_rate=embed_args.pop('learning_rate', learning_rate))
 
-        self.o1 = tf.placeholder(tf.float32, [None, o_size], name='O1')
-        self.o2 = tf.placeholder(tf.float32, [None, o_size], name='O2')
-        self.a = tf.placeholder(tf.float32, [None, a_size], name='A')
-        self.r = tf.placeholder(tf.float32, [None], name='R')
-        self.t = tf.placeholder(tf.float32, [None], name='T')
-        step = Step(o1=self.o1, o2=self.o2, a=self.a, r=self.r, t=self.t)
-
-        gamma = tf.constant(0.99)
-        tau = 0.01
-        parameters = self.get_policy_params(step.o1)
+    @tf.contrib.eager.defun
+    def _get_actions(self, o1: tf.Tensor, sample: bool = True) -> np.array:
+        parameters = self.get_policy_params(o1)
         self.A_sampled1 = self.policy_parameters_to_sample(parameters)
         self.A_max_likelihood = self.policy_parameters_to_max_likelihood_action(
             parameters)
+        if sample:
+            return self.A_sampled1
+        else:
+            return self.A_max_likelihood
 
-        def update(network: tf.keras.Model, loss: tf.Tensor):
+    @tf.contrib.eager.defun
+    def _train_step(self, step: Step):
+        gamma = tf.constant(0.99)
+        tau = 0.01
+
+        def update(network: tf.keras.Model, loss: tf.Tensor, tape: tf.GradientTape):
             variables = network.trainable_variables
-            gradients, variables = zip(*self.optimizer.compute_gradients(loss, variables))
+            gradients = tape.gradient(loss, variables)
             if self.grad_clip:
                 gradients, norm = tf.clip_by_global_norm(gradients, self.grad_clip)
             else:
                 norm = tf.global_norm(gradients)
-            op = self.optimizer.apply_gradients(
-                zip(gradients, variables), global_step=self.global_step)
-            return op, norm
 
-        with tf.variable_scope('agent'):
+            self.optimizer.apply_gradients(zip(gradients, variables))
+            return norm
+
+        with tf.GradientTape(persistent=True) as tape:
             parameters = self.get_policy_params(step.o1)
             A_sampled1 = self.policy_parameters_to_sample(parameters)
             A_sampled2 = self.policy_parameters_to_sample(parameters)
@@ -111,51 +111,25 @@ class AbstractAgent:
             self.pi_loss = pi_loss = tf.reduce_mean(
                 log_pi_sampled2 * tf.stop_gradient(log_pi_sampled2 - q2 + v1))
 
-            self.train_V, self.V_grad = update(network=self.v1_network, loss=V_loss)
-            self.train_Q, self.Q_grad = update(network=self.q_network, loss=Q_loss)
-            self.train_pi, self.pi_grad = update(network=self.pi_network, loss=pi_loss)
+        pi_norm = update(self.pi_network, pi_loss, tape)
+        V_norm = update(self.v1_network, V_loss, tape)
+        Q_norm = update(self.q_network, Q_loss, tape)
 
-            # placeholders
-            soft_update_xi_bar_ops = [
-                tf.assign(xbar, tau * x + (1 - tau) * xbar)
-                for (xbar, x) in zip(self.v2_network.trainable_variables,
-                                     self.v1_network.trainable_variables)
-            ]
-            self.soft_update_xi_bar = tf.group(*soft_update_xi_bar_ops)
-            # self.check = tf.add_check_numerics_ops()
-            self.entropy = tf.reduce_mean(self.entropy_from_params(parameters))
-            # ensure that xi and xi_bar are the same at initialization
+        for var1, var2 in zip(self.v1_network.variables, self.v2_network.variables):
+            tf.assign(var2, tau * var1 + (1 - tau) * var2)
 
-            self.sess.run(tf.global_variables_initializer())
+        # self.check = tf.add_check_numerics_ops()
+        entropy = tf.reduce_mean(self.entropy_from_params(parameters))
 
-    def train_step(self, step: Step) -> dict:
-        feed_dict = {
-            self.o1: step.o1,
-            self.a:  step.a,
-            self.r:  np.array(step.r) * self.reward_scale,
-            self.o2: step.o2,
-            self.t:  step.t,
-        }
-
-        return self.sess.run(
-            dict(
-                entropy=self.entropy,
-                soft_update_xi_bar=self.soft_update_xi_bar,
-                Q_error=self.Q_error,
-                V_loss=self.V_loss,
-                Q_loss=self.Q_loss,
-                pi_loss=self.pi_loss,
-                V_grad=self.V_grad,
-                Q_grad=self.Q_grad,
-                pi_grad=self.pi_grad,
-                train_V=self.train_V,
-                train_Q=self.train_Q,
-                train_pi=self.train_pi,
-            ), feed_dict)
-
-    def get_actions(self, o: ArrayLike, sample: bool = True) -> tf.Tensor:
-        A = self.A_sampled1 if sample else self.A_max_likelihood
-        return self.sess.run(A, {self.o1: [o]})[0]
+        return dict(
+            entropy=entropy,
+            V_loss=V_loss,
+            Q_loss=Q_loss,
+            pi_loss=pi_loss,
+            V_grad=V_norm,
+            Q_grad=Q_norm,
+            pi_grad=pi_norm,
+        )
 
     def getV1(self, o):
         return tf.reshape(self.v1_network(o), [-1])
@@ -167,25 +141,13 @@ class AbstractAgent:
         return tf.reshape(
             self.q_network(tf.concat([o, self.preprocess_action(a)], axis=1)), [-1])
 
-    def get_v1(self, o1: np.ndarray):
-        return self.sess.run(self.v1, feed_dict={self.o1: [o1]})[0]
+    def get_actions(self, o: ArrayLike, sample: bool = True) -> np.array:
+        o = tf.convert_to_tensor(o.reshape(1, -1), dtype=tf.float32)
+        return self._get_actions(o).numpy().reshape(-1)
 
-    def get_value(self, step: Step):
-        return self.sess.run(
-            self.v1, feed_dict={
-                self.o1: step.o1,
-            })
-
-    def td_error(self, step: Step):
-        return self.sess.run(
-            self.Q_error,
-            feed_dict={
-                self.o1: step.o1,
-                self.a:  step.a,
-                self.r:  step.r,
-                self.o2: step.o2,
-                self.t:  step.t
-            })
+    def train_step(self, step: Step) -> dict:
+        step = Step(*[tf.convert_to_tensor(x, dtype=tf.float32) for x in step])
+        return {k: v.numpy() for k, v in self._train_step(step).items()}
 
     @abstractmethod
     def pi_network(self, inputs: tf.Tensor) -> NetworkOutput:
