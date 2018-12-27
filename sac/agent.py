@@ -154,6 +154,10 @@ class AbstractAgent:
                 train_pi=self.train_pi,
             ), feed_dict)
 
+    def get_actions(self, o: ArrayLike, sample: bool = True) -> tf.Tensor:
+        A = self.A_sampled1 if sample else self.A_max_likelihood
+        return self.sess.run(A, {self.o1: [o]})[0]
+
     def getV1(self, o):
         return tf.reshape(self.v1_network(o), [-1])
 
@@ -163,10 +167,6 @@ class AbstractAgent:
     def getQ(self, o, a):
         return tf.reshape(
             self.q_network(tf.concat([o, self.preprocess_action(a)], axis=1)), [-1])
-
-    def get_actions(self, o: ArrayLike, sample: bool = True, state=None) -> NetworkOutput:
-        A = self.A_sampled1 if sample else self.A_max_likelihood
-        return NetworkOutput(output=self.sess.run(A, {self.o1: [o]})[0], state=0)
 
     def get_v1(self, o1: np.ndarray):
         return self.sess.run(self.v1, feed_dict={self.o1: [o1]})[0]

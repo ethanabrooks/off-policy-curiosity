@@ -171,16 +171,15 @@ class Trainer:
         episode_count = Counter()
         episode_mean = Counter()
         tick = time.time()
-        s = 0
         for time_steps in itertools.count(1):
-            a, s = self.get_actions(o1, s, sample=not eval_period)
+            a = self.get_actions(o1, sample=not eval_period)
             o2, r, t, info = self.step(a, render)
             if 'print' in info:
                 print('Time step:', time_steps, info['print'])
             if not eval_period:
                 episode_mean.update(self.perform_update())
 
-            self.add_to_buffer(Step(s=s, o1=o1, a=a, r=r, o2=o2, t=t))
+            self.add_to_buffer(Step(o1=o1, a=a, r=r, o2=o2, t=t))
             o1 = o2
             # noinspection PyTypeChecker
             episode_mean.update(
@@ -209,10 +208,10 @@ class Trainer:
                     }))
         return counter
 
-    def get_actions(self, o1, s, sample: bool):
+    def get_actions(self, o1, sample: bool):
         obs = self.preprocess_obs(o1)
         # assert self.observation_space.contains(obs)
-        return self.agents.act.get_actions(o=obs, state=s, sample=sample)
+        return self.agents.act.get_actions(o=obs, sample=sample)
 
     def build_agent(self,
                     observation_space: gym.Space,
@@ -278,7 +277,6 @@ class Trainer:
         return Step(
             o1=self.preprocess_obs(sample.o1, shape=shape),
             o2=self.preprocess_obs(sample.o2, shape=shape),
-            s=sample.s,
             a=sample.a,
             r=sample.r,
             t=sample.t)
