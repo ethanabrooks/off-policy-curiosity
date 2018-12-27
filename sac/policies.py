@@ -20,7 +20,7 @@ class GaussianPolicy(AbstractAgent):
         super().__init__(
             network_args=network_args, o_size=o_size, a_size=a_size, **kwargs)
 
-    def get_policy_params(self, a_size: int, obs: tf.Tensor):
+    def get_policy_params(self, obs: tf.Tensor):
         processed_s = self.pi_network(obs)
         mu, sigma_param = tf.split(processed_s, 2, axis=1)
         return mu, tf.sigmoid(sigma_param) + 0.0001
@@ -53,8 +53,8 @@ class GaussianPolicy(AbstractAgent):
         return tf.distributions.Normal(mu, sigma).entropy()
 
 
-class GaussianMixturePolicy(object):
-    def get_policy_params(self, a_size, obs):
+class GaussianMixturePolicy(AbstractAgent):
+    def get_policy_params(self, obs):
         pass
 
     def policy_parmeters_to_log_prob(self, a, parameters):
@@ -64,7 +64,7 @@ class GaussianMixturePolicy(object):
         raise NotImplementedError
 
 
-class CategoricalPolicy(object):
+class CategoricalPolicy(AbstractAgent):
     def __init__(self, a_size, o_size, network_args, **kwargs):
         super().__init__(
             a_size=a_size, o_size=o_size, network_args=network_args, **kwargs)
