@@ -11,10 +11,8 @@ from gym.spaces import Box
 import numpy as np
 
 # first party
-from environments import hsr
-from environments.frozen_lake import FrozenLakeEnv
-import environments.hsr
-from environments.hsr import HSREnv, MultiBlockHSREnv
+import hsr
+from hsr.env import HSREnv, MultiBlockHSREnv
 from sac.array_group import ArrayGroup
 from sac.utils import Step, unwrap_env, vectorize
 
@@ -69,7 +67,8 @@ class HindsightWrapper(gym.Wrapper):
         trajectory.t[:] = np.logical_or(trajectory.t, trajectory.r)
 
         first_terminal = np.flatnonzero(trajectory.t)[0]
-        return ArrayGroup(trajectory)[:first_terminal + 1]  # include first terminal
+        return ArrayGroup(trajectory)[:first_terminal +
+                                      1]  # include first terminal
 
     def preprocess_obs(self, obs, shape: tuple = None):
         obs = Observation(*obs)
@@ -84,7 +83,8 @@ class MountaincarHindsightWrapper(HindsightWrapper):
 
     def __init__(self, env):
         super().__init__(env)
-        self.mc_env = unwrap_env(env, lambda e: isinstance(e, Continuous_MountainCarEnv))
+        self.mc_env = unwrap_env(
+            env, lambda e: isinstance(e, Continuous_MountainCarEnv))
         self.observation_space = spaces.Tuple(
             Observation(
                 observation=self.mc_env.observation_space,
@@ -122,7 +122,7 @@ class HSRHindsightWrapper(HindsightWrapper):
         super().__init__(env)
         self.hsr_env = unwrap_env(env, lambda e: isinstance(e, HSREnv))
         self._geofence = self.hsr_env.geofence
-        hsr_spaces = hsr.Observation(*self.hsr_env.observation_space.spaces)
+        hsr_spaces = hsr.env.Observation(*self.hsr_env.observation_space.spaces)
         self.observation_space = spaces.Tuple(
             Observation(
                 observation=hsr_spaces.observation,
@@ -132,7 +132,7 @@ class HSRHindsightWrapper(HindsightWrapper):
 
     def _add_goals(self, env_obs):
         observation = Observation(
-            observation=environments.hsr.Observation(*env_obs).observation,
+            observation=hsr.env.Observation(*env_obs).observation,
             desired_goal=self._desired_goal(),
             achieved_goal=self._achieved_goal())
         # assert self.observation_space.contains(observation)
@@ -153,51 +153,26 @@ class HSRHindsightWrapper(HindsightWrapper):
     def goal_space(self):
         low = self.hsr_env.goal_space.low.copy()
         low[2] = self.hsr_env.initial_block_pos[0][2]
-        return Box(low=low, high=self.hsr_env.goal_space.high, dtype=np.float32)
+        return Box(
+            low=low, high=self.hsr_env.goal_space.high, dtype=np.float32)
 
 
 class MBHSRHindsightWrapper(HSRHindsightWrapper):
     def __init__(self, env, geofence):
         super().__init__(env, geofence)
-        self._mb_hsr_env = unwrap_env(env, lambda e: isinstance(e, MultiBlockHSREnv))
+        self._mb_hsr_env = unwrap_env(
+            env, lambda e: isinstance(e, MultiBlockHSREnv))
         self.observation_space = spaces.Tuple(
             self.observation_space.spaces.replace(
-                desired_goal=spaces.Tuple([self.goal_space] * self.hsr_env.n_blocks)))
+                desired_goal=spaces.Tuple([self.goal_space] *
+                                          self.hsr_env.n_blocks)))
 
     def _achieved_goal(self):
         return np.stack([
-            self._mb_hsr_env.block_pos(i).copy() for i in range(self._mb_hsr_env.n_blocks)
+            self._mb_hsr_env.block_pos(i).copy()
+            for i in range(self._mb_hsr_env.n_blocks)
         ])
 
     def _desired_goal(self):
         return self.hsr_env.goals
 
-
-class FrozenLakeHindsightWrapper(HindsightWrapper):
-    def __init__(self, env):
-        self.frozen_lake_env = unwrap_env(env, lambda e: isinstance(e, FrozenLakeEnv))
-        super().__init__(env)
-
-    def _achieved_goal(self):
-        fl_env = self.frozen_lake_env
-        return np.array([fl_env.s // fl_env.nrow, fl_env.s % fl_env.ncol])
-
-    def _is_success(self, achieved_goal, desired_goal):
-        return (achieved_goal == desired_goal).prod(axis=-1)
-
-    def _desired_goal(self):
-        return self.frozen_lake_env.goal_vector()
-
-    def step(self, action):
-        o2, r, t, info = self.env.step(action)
-        new_o2 = Observation(
-            observation=np.array(o2.observation),
-            desired_goal=self._desired_goal(),
-            achieved_goal=self._achieved_goal())
-        return new_o2, r, t, info
-
-    def reset(self):
-        return Observation(
-            observation=np.array(self.env.reset().observation),
-            desired_goal=self._desired_goal(),
-            achieved_goal=self._achieved_goal())

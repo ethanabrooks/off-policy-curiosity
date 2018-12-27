@@ -14,7 +14,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.contrib.summary import summary
 
-from environments.hindsight_wrapper import HindsightWrapper
+from sac.hindsight_wrapper import HindsightWrapper
 from sac.agent import AbstractAgent
 from sac.policies import CategoricalPolicy, GaussianPolicy
 from sac.replay_buffer import ReplayBuffer
