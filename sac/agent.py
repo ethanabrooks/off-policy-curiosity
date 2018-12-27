@@ -56,6 +56,18 @@ class AbstractAgent:
                 learning_rate=embed_args.pop('learning_rate', learning_rate))
 
     @tf.contrib.eager.defun
+    def _get_actions(self, o: tf.Tensor, sample: bool = True) -> np.array:
+        parameters = self.get_policy_params(o)
+        if sample:
+            return self.policy_parameters_to_sample(parameters)
+        else:
+            return self.policy_parameters_to_max_likelihood_action(parameters)
+
+    def get_actions(self, o: ArrayLike, sample: bool = True) -> np.array:
+        o = tf.convert_to_tensor(o.reshape(1, -1), dtype=tf.float32)
+        return self._get_actions(o).numpy().reshape(-1)
+
+    @tf.contrib.eager.defun
     def _train_step(self, step: Step):
         gamma = tf.constant(0.99)
         tau = 0.01
@@ -137,19 +149,6 @@ class AbstractAgent:
     def train_step(self, step: Step) -> dict:
         step = Step(*[tf.convert_to_tensor(x, dtype=tf.float32) for x in step])
         return {k: v.numpy() for k, v in self._train_step(step).items()}
-
-    @tf.contrib.eager.defun
-    def _get_actions(self, o: tf.Tensor, sample: bool = True) -> np.array:
-        parameters = self.get_policy_params(o)
-        if sample:
-            func = self.policy_parameters_to_sample
-        else:
-            func = self.policy_parameters_to_max_likelihood_action
-        return func(parameters)
-
-    def get_actions(self, o: ArrayLike, sample: bool = True) -> np.array:
-        o = tf.convert_to_tensor(o.reshape(1, -1), dtype=tf.float32)
-        return self._get_actions(o).numpy().reshape(-1)
 
     @abstractmethod
     def pi_network(self, inputs: tf.Tensor) -> NetworkOutput:
