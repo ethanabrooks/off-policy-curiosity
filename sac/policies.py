@@ -20,7 +20,7 @@ class GaussianPolicy(AbstractAgent):
         super().__init__(
             network_args=network_args, o_size=o_size, a_size=a_size, **kwargs)
 
-    def produce_policy_parameters(self, a_size: int, obs: tf.Tensor):
+    def get_policy_params(self, a_size: int, obs: tf.Tensor):
         processed_s = self.pi_network(obs)
         mu, sigma_param = tf.split(processed_s, 2, axis=1)
         return mu, tf.sigmoid(sigma_param) + 0.0001
@@ -54,21 +54,28 @@ class GaussianPolicy(AbstractAgent):
 
 
 class GaussianMixturePolicy(object):
-    def produce_policy_parameters(self, a_size, obs):
+    def get_policy_params(self, a_size, obs):
         pass
 
     def policy_parmeters_to_log_prob(self, a, parameters):
-        pass
+        raise NotImplementedError
 
     def policy_parameters_to_sample(self, parameters):
-        pass
+        raise NotImplementedError
 
 
-class CategoricalPolicy(AbstractAgent):
-    @staticmethod
-    def produce_policy_parameters(a_size, obs):
-        logits = tf.layers.dense(obs, a_size, name='logits')
-        return logits
+class CategoricalPolicy(object):
+    def __init__(self, a_size, o_size, network_args, **kwargs):
+        super().__init__(
+            a_size=a_size, o_size=o_size, network_args=network_args, **kwargs)
+        self.pi_network = make_network(
+            o_size,
+            a_size,
+            **network_args,
+        )
+
+    def get_policy_params(self, obs):
+        return self.pi_network(obs)
 
     @staticmethod
     def policy_parameters_to_log_prob(action, parameters):

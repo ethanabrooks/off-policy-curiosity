@@ -78,7 +78,7 @@ class AbstractAgent:
             return op, norm
 
         with tf.variable_scope('agent'):
-            parameters = self.produce_policy_parameters(self.a_size, self.O1)
+            parameters = self.get_policy_params(self.a_size, self.O1)
             A_sampled1 = self.policy_parameters_to_sample(parameters)
             A_sampled2 = self.policy_parameters_to_sample(parameters)
             self.A_sampled1 = A_sampled1
@@ -191,7 +191,7 @@ class AbstractAgent:
     def pi_network(self, inputs: tf.Tensor) -> NetworkOutput:
         pass
 
-    def get_policy_params(self, obs: tf.Tensor) -> tf.Tensor:
+    def get_policy_params(self, a_size: int, obs: tf.Tensor) -> tf.Tensor:
         pass
 
     @staticmethod
