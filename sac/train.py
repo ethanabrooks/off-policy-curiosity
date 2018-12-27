@@ -64,13 +64,11 @@ class Trainer:
             dtype=np.float32)
 
         self.action_space = env.action_space
-        self.agents = Agents(
-            act=self.build_agent(
+        self.agent = self.build_agent(
                 sess=self.sess,
                 action_space=env.action_space,
                 observation_space=observation_space,
-                **kwargs),
-            train=None)
+                **kwargs)
 
         self.global_step = tf.Variable(0, name='global_step', trainable=False)
         self.episode_time_step = tf.placeholder(tf.int32, name='episode_time_steps')
@@ -179,7 +177,7 @@ class Trainer:
 
     def train_step(self, sample=None):
         sample = sample or self.sample_buffer()
-        return self.agents.act.train_step(sample)
+        return self.agent.train_step(sample)
 
     def perform_update(self):
         counter = Counter()
@@ -195,7 +193,7 @@ class Trainer:
     def get_actions(self, o1, sample: bool):
         obs = self.preprocess_obs(o1)
         # assert self.observation_space.contains(obs)
-        return self.agents.act.get_actions(o=obs, sample=sample)
+        return self.agent.get_actions(o=obs, sample=sample)
 
     def build_agent(self,
                     observation_space: gym.Space,
