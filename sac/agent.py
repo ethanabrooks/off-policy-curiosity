@@ -187,12 +187,6 @@ class AbstractAgent:
                 self.T: step.t
             })
 
-    def network(self, inputs: tf.Tensor):
-        return mlp(inputs=inputs, **self.network_args)
-
-    def _print(self, tensor, name: str):
-        return tf.Print(tensor, [tensor], message=name, summarize=1e5)
-
     @abstractmethod
     def pi_network(self, inputs: tf.Tensor) -> tf.Tensor:
         pass
