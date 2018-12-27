@@ -43,56 +43,37 @@ class Trainer:
             tf.set_random_seed(seed)
             env.seed(seed)
 
+        self.sess = sess or create_sess()
         self.episodes = None
         self.episode_count = None
         self.n_train_steps = n_train_steps
         self.batch_size = batch_size
         self.env = env
         self.buffer = ReplayBuffer(buffer_size)
-        self.sess = sess or create_sess()
-        self.action_space = action_space or env.action_space
-        observation_space = observation_space or env.observation_space
-
-        obs = env.reset()
         self.preprocess_func = preprocess_func
+        obs = env.reset()
         if preprocess_func is None and not isinstance(obs, np.ndarray):
             try:
                 self.preprocess_func = unwrap_env(
                     env, lambda e: hasattr(e, 'preprocess_obs')).preprocess_obs
             except RuntimeError:
                 self.preprocess_func = vectorize
-
         observation_space = spaces.Box(
             *[
-                self.preprocess_obs(get_space_attrs(observation_space, attr))
+                self.preprocess_obs(get_space_attrs(env.observation_space, attr))
                 for attr in ['low', 'high']
             ],
             dtype=np.float32)
 
-        self.agents = Agents(
-            act=self.build_agent(
-                sess=self.sess,
-                action_space=action_space,
-                observation_space=observation_space,
-                **kwargs),
-            train=None)
-
-        # self.build_agent(
-        # sess=self.sess,
-        # batch_size=batch_size,
-        # seq_len=seq_len,
-        # reuse=True,
-        # action_space=action_space,
-        # observation_space=observation_space,
-        # **kwargs))
-
         self.global_step = tf.Variable(0, name='global_step', trainable=False)
         self.episode_time_step = tf.placeholder(tf.int32, name='episode_time_steps')
-        self.increment_global_step = tf.assign_add(self.global_step,
-                                                   self.episode_time_step)
-        self.sess.run(self.global_step.initializer)
+        self.increment_global_step = tf.assign_add(self.global_step, self.episode_time_step)
 
-        # self.train(load_path, logdir, render, save_path)
+        self.action_space = env.action_space
+        self.agent = self.build_agent(
+            observation_space=observation_space, action_space=self.action_space,
+            sess=self.sess,
+            **kwargs)
 
     def train(self,
               load_path: Path,
@@ -196,7 +177,7 @@ class Trainer:
 
     def train_step(self, sample=None):
         sample = sample or self.sample_buffer()
-        return self.agents.act.train_step(sample)
+        return self.agent.train_step(sample)
 
     def perform_update(self):
         counter = Counter()
@@ -212,7 +193,7 @@ class Trainer:
     def get_actions(self, o1, s, sample: bool):
         obs = self.preprocess_obs(o1)
         # assert self.observation_space.contains(obs)
-        return self.agents.act.get_actions(o=obs, state=s, sample=sample)
+        return self.agent.get_actions(o=obs, state=s, sample=sample)
 
     def build_agent(self,
                     observation_space: gym.Space,
