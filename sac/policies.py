@@ -31,7 +31,7 @@ class GaussianPolicy(AbstractAgent):
         log_prob = tf.distributions.Normal(mu, sigma).log_prob(action)
         return tf.reduce_sum(
             log_prob, axis=1) - tf.reduce_sum(
-            tf.log(1 - tf.square(tf.tanh(action)) + EPS), axis=1)
+                tf.log(1 - tf.square(tf.tanh(action)) + EPS), axis=1)
 
     @staticmethod
     def policy_parameters_to_max_likelihood_action(parameters):
@@ -80,8 +80,8 @@ class CategoricalPolicy(object):
     @staticmethod
     def policy_parameters_to_log_prob(action, parameters):
         logits = parameters
-        return tf.distributions.Categorical(logits=logits).log_prob(tf.argmax(action,
-                                                                              axis=1))
+        return tf.distributions.Categorical(logits=logits).log_prob(
+            tf.argmax(action, axis=1))
 
     @staticmethod
     def policy_parameters_to_sample(parameters):

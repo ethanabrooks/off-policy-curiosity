@@ -67,11 +67,13 @@ class Trainer:
 
         self.global_step = tf.Variable(0, name='global_step', trainable=False)
         self.episode_time_step = tf.placeholder(tf.int32, name='episode_time_steps')
-        self.increment_global_step = tf.assign_add(self.global_step, self.episode_time_step)
+        self.increment_global_step = tf.assign_add(self.global_step,
+                                                   self.episode_time_step)
 
         self.action_space = env.action_space
         self.agent = self.build_agent(
-            observation_space=observation_space, action_space=self.action_space,
+            observation_space=observation_space,
+            action_space=self.action_space,
             sess=self.sess,
             **kwargs)
 
