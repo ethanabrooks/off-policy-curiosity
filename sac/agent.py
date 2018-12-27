@@ -87,10 +87,6 @@ class AbstractAgent:
             A_sampled1 = self.policy_parameters_to_sample(parameters)
             A_sampled2 = self.policy_parameters_to_sample(parameters)
 
-            # generate actions:
-            self.A_max_likelihood = tf.stop_gradient(
-                self.policy_parameters_to_max_likelihood_action(parameters))
-
             # constructing V loss
             v1 = self.getV1(step.o1)
             self.v1 = v1
