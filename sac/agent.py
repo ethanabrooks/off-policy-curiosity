@@ -62,9 +62,14 @@ class AbstractAgent:
         self.a = tf.placeholder(tf.float32, [None, a_size], name='A')
         self.r = tf.placeholder(tf.float32, [None], name='R')
         self.t = tf.placeholder(tf.float32, [None], name='T')
+        step = Step(o1=self.o1, o2=self.o2, a=self.a, r=self.r, t=self.t)
 
         gamma = tf.constant(0.99)
         tau = 0.01
+        parameters = self.get_policy_params(step.o1)
+        self.A_sampled1 = self.policy_parameters_to_sample(parameters)
+        self.A_max_likelihood = self.policy_parameters_to_max_likelihood_action(
+            parameters)
 
         def update(network: tf.keras.Model, loss: tf.Tensor):
             variables = network.trainable_variables
@@ -77,16 +82,10 @@ class AbstractAgent:
                 zip(gradients, variables), global_step=self.global_step)
             return op, norm
 
-        step = self
         with tf.variable_scope('agent'):
             parameters = self.get_policy_params(step.o1)
             A_sampled1 = self.policy_parameters_to_sample(parameters)
             A_sampled2 = self.policy_parameters_to_sample(parameters)
-            self.A_sampled1 = A_sampled1
-
-            # generate actions:
-            self.A_max_likelihood = tf.stop_gradient(
-                self.policy_parameters_to_max_likelihood_action(parameters))
 
             # constructing V loss
             v1 = self.getV1(step.o1)
@@ -112,9 +111,9 @@ class AbstractAgent:
             self.pi_loss = pi_loss = tf.reduce_mean(
                 log_pi_sampled2 * tf.stop_gradient(log_pi_sampled2 - q2 + v1))
 
-            step.train_V, self.V_grad = update(network=self.v1_network, loss=V_loss)
-            step.train_Q, self.Q_grad = update(network=self.q_network, loss=Q_loss)
-            step.train_pi, self.pi_grad = update(network=self.pi_network, loss=pi_loss)
+            self.train_V, self.V_grad = update(network=self.v1_network, loss=V_loss)
+            self.train_Q, self.Q_grad = update(network=self.q_network, loss=Q_loss)
+            self.train_pi, self.pi_grad = update(network=self.pi_network, loss=pi_loss)
 
             # placeholders
             soft_update_xi_bar_ops = [
