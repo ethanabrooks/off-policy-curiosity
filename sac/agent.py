@@ -161,7 +161,7 @@ class AbstractAgent:
 
     def getQ(self, o, a):
         return tf.reshape(
-            self.q_network(tf.concat([o, self.transform_action_sample(a)], axis=1)), [-1])
+            self.q_network(tf.concat([o, self.preprocess_action(a)], axis=1)), [-1])
 
     def get_actions(self, o: ArrayLike, sample: bool = True, state=None) -> NetworkOutput:
         A = self.A_sampled1 if sample else self.A_max_likelihood
@@ -216,7 +216,7 @@ class AbstractAgent:
         pass
 
     @abstractmethod
-    def transform_action_sample(self, action_sample: tf.Tensor) -> tf.Tensor:
+    def preprocess_action(self, action_sample: tf.Tensor) -> tf.Tensor:
         pass
 
     @abstractmethod
