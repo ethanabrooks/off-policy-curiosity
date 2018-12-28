@@ -12,6 +12,7 @@ def add_network_args(parser):
         choices=ACTIVATIONS.values())
     parser.add_argument('--n-hidden', type=int, required=True)
     parser.add_argument('--layer-size', type=int, required=True)
+    parser.add_argument('--no-bias', dest='use_bias', action='store_false')
 
 
 def add_trainer_args(parser):

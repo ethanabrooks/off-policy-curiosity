@@ -1,26 +1,23 @@
-# stdlib
-from collections import Counter, deque, namedtuple
 import itertools
-from pathlib import Path
 import time
+from collections import Counter, deque, namedtuple
+from pathlib import Path
 from typing import Optional, Tuple
 
-# third party
-# first party
 import gym
-from gym import Wrapper, spaces
-from gym.wrappers import TimeLimit
 import numpy as np
 import tensorflow as tf
+from gym import Wrapper, spaces
+from gym.wrappers import TimeLimit
 from tensorflow.contrib.summary import summary
-from utils.gym import unwrap_env, get_space_attrs, space_to_size
-from utils.numpy import vectorize
+from utils.gym import unwrap_env, space_to_size
+from utils.numpy import vectorize, onehot
+from utils.replay_buffer import ReplayBuffer
 from utils.types import Step, Obs, Shape
 
-from sac.hindsight_wrapper import HindsightWrapper
 from sac.agent import AbstractAgent
+from sac.hindsight_wrapper import HindsightWrapper
 from sac.policies import CategoricalPolicy, GaussianPolicy
-from utils.replay_buffer import ReplayBuffer
 
 Agents = namedtuple('Agents', 'train act')
 
@@ -35,7 +32,6 @@ class Trainer:
                  buffer_size: int,
                  batch_size: int,
                  n_train_steps: int,
-                 preprocess_func=None,
                  **kwargs):
         tf.enable_eager_execution()
 
@@ -50,24 +46,10 @@ class Trainer:
         self.batch_size = batch_size
         self.env = env
         self.buffer = ReplayBuffer(buffer_size)
-        self.preprocess_func = preprocess_func
-        obs = env.reset()
-        if preprocess_func is None and not isinstance(obs, np.ndarray):
-            try:
-                self.preprocess_func = unwrap_env(
-                    env, lambda e: hasattr(e, 'preprocess_obs')).preprocess_obs
-            except RuntimeError:
-                self.preprocess_func = vectorize
-        observation_space = spaces.Box(
-            *[
-                self.preprocess_obs(get_space_attrs(env.observation_space, attr))
-                for attr in ['low', 'high']
-            ],
-            dtype=np.float32)
-
         self.action_space = env.action_space
         self.agent = self.build_agent(
-            observation_space=observation_space, action_space=self.action_space, **kwargs)
+            observation_space=env.observation_space, action_space=self.action_space,
+            **kwargs)
         self.time_steps = tf.train.get_or_create_global_step()
 
     def train(self,
@@ -137,7 +119,7 @@ class Trainer:
                     else:
                         for k, v in self.episode_count.items():
                             if np.isscalar(v):
-                                summary.scalar(k.replace('_', ' '), float(v))
+                                summary.scalar(k, float(v))
 
     def is_eval_period(self):
         return self.episodes % 100 == 0
@@ -209,7 +191,7 @@ class Trainer:
         class Agent(policy_type):
             def __init__(self):
                 super(Agent, self).__init__(
-                    o_size=observation_space.shape[0],
+                    o_size=space_to_size(observation_space),
                     a_size=space_to_size(action_space),
                     **kwargs)
 
@@ -239,9 +221,10 @@ class Trainer:
         return s, r, t, i
 
     def preprocess_obs(self, obs, shape: Shape = None):
-        if self.preprocess_func is not None:
-            obs = self.preprocess_func(obs, shape)
-        return obs
+        if isinstance(self.env.observation_space, spaces.Discrete):
+            return onehot(np.int_(obs), self.env.observation_space.n)
+        else:
+            return vectorize(obs, shape)
 
     def add_to_buffer(self, step: Step) -> None:
         assert isinstance(step, Step)
