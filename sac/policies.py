@@ -80,8 +80,9 @@ class CategoricalPolicy(AbstractAgent):
     @staticmethod
     def policy_parameters_to_log_prob(action, parameters):
         logits = parameters
-        return tf.distributions.Categorical(logits=logits).log_prob(
+        actions = tf.distributions.Categorical(logits=logits).log_prob(
             tf.argmax(action, axis=1))
+        return tf.ones_like(actions)
 
     @staticmethod
     def policy_parameters_to_sample(parameters):
