@@ -32,6 +32,7 @@ def add_train_args(parser):
     parser.add_argument('--logdir', type=Path, default=None)
     parser.add_argument('--load-path', type=str, default=None)
     parser.add_argument('--save-threshold', type=int, default=None)
+    parser.add_argument('--log-interval', type=int, default=30)
 
 
 def add_hindsight_args(parser):
