@@ -109,7 +109,10 @@ class Trainer:
                                   f'Episode: {episodes}\t ' \
                                   f'Time Steps: {int(self.time_steps)}\t ' \
                                   f'Reward: {episode_return}\t ' \
-                                  f'Success: {self.episode_count[SUCCESS_KWD]}'
+                                  f'Success: {self.episode_count[SUCCESS_KWD]}' \
+                                  f'Q loss: {self.episode_count["Q_loss"]}' \
+                                  f'V loss: {self.episode_count["V_loss"]}' \
+                                  f'pi loss: {self.episode_count["pi_loss"]}'
                 print(print_statement)
                 log_time = time.time()
                 with tf.contrib.summary.record_summaries_every_n_global_steps(1):
