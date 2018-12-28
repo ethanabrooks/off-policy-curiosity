@@ -108,7 +108,6 @@ class AbstractAgent:
             # constructing pi loss
             q2 = self.getQ(step.o1, A_sampled2)
             log_pi_sampled2 = self.policy_parameters_to_log_prob(A_sampled1, parameters)
-            log_pi_sampled2 *= self.entropy_scale  # type: tf.Tensor
             self.pi_loss = pi_loss = tf.reduce_mean(
                 log_pi_sampled2 * tf.stop_gradient(log_pi_sampled2 - q2 + v1))
 
