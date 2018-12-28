@@ -1,23 +1,23 @@
-import itertools
-import time
 from collections import Counter, deque, namedtuple
+import itertools
 from pathlib import Path
+import time
 from typing import Optional, Tuple
 
 import gym
-import numpy as np
-import tensorflow as tf
 from gym import Wrapper, spaces
 from gym.wrappers import TimeLimit
+import numpy as np
+import tensorflow as tf
 from tensorflow.contrib.summary import summary
-from utils.gym import unwrap_env, space_to_size
-from utils.numpy import vectorize, onehot
-from utils.replay_buffer import ReplayBuffer
-from utils.types import Step, Obs, Shape
 
 from sac.agent import AbstractAgent
 from sac.hindsight_wrapper import HindsightWrapper
 from sac.policies import CategoricalPolicy, GaussianPolicy
+from utils.gym import space_to_size, unwrap_env
+from utils.numpy import onehot, vectorize
+from utils.replay_buffer import ReplayBuffer
+from utils.types import Obs, Shape, Step
 
 Agents = namedtuple('Agents', 'train act')
 
@@ -26,13 +26,8 @@ LOG_COUNT_KWD = 'log count'
 
 
 class Trainer:
-    def __init__(self,
-                 env: gym.Env,
-                 seed: Optional[int],
-                 buffer_size: int,
-                 batch_size: int,
-                 n_train_steps: int,
-                 **kwargs):
+    def __init__(self, env: gym.Env, seed: Optional[int], buffer_size: int,
+                 batch_size: int, n_train_steps: int, **kwargs):
         tf.enable_eager_execution()
 
         if seed is not None:
@@ -48,7 +43,8 @@ class Trainer:
         self.buffer = ReplayBuffer(buffer_size)
         self.action_space = env.action_space
         self.agent = self.build_agent(
-            observation_space=env.observation_space, action_space=self.action_space,
+            observation_space=env.observation_space,
+            action_space=self.action_space,
             **kwargs)
         self.time_steps = tf.train.get_or_create_global_step()
 

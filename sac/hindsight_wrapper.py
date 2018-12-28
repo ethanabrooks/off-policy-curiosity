@@ -14,9 +14,9 @@ import numpy as np
 import hsr
 from hsr.env import HSREnv, MultiBlockHSREnv
 from utils.array_group import ArrayGroup
-from utils.types import Step
 from utils.gym import unwrap_env
 from utils.numpy import vectorize
+from utils.types import Step
 
 Goal = namedtuple('Goal', 'gripper block')
 
@@ -69,8 +69,7 @@ class HindsightWrapper(gym.Wrapper):
         trajectory.t[:] = np.logical_or(trajectory.t, trajectory.r)
 
         first_terminal = np.flatnonzero(trajectory.t)[0]
-        return ArrayGroup(trajectory)[:first_terminal +
-                                      1]  # include first terminal
+        return ArrayGroup(trajectory)[:first_terminal + 1]  # include first terminal
 
     def preprocess_obs(self, obs, shape: tuple = None):
         obs = Observation(*obs)
@@ -85,8 +84,7 @@ class MountaincarHindsightWrapper(HindsightWrapper):
 
     def __init__(self, env):
         super().__init__(env)
-        self.mc_env = unwrap_env(
-            env, lambda e: isinstance(e, Continuous_MountainCarEnv))
+        self.mc_env = unwrap_env(env, lambda e: isinstance(e, Continuous_MountainCarEnv))
         self.observation_space = spaces.Tuple(
             Observation(
                 observation=self.mc_env.observation_space,
@@ -155,26 +153,21 @@ class HSRHindsightWrapper(HindsightWrapper):
     def goal_space(self):
         low = self.hsr_env.goal_space.low.copy()
         low[2] = self.hsr_env.initial_block_pos[0][2]
-        return Box(
-            low=low, high=self.hsr_env.goal_space.high, dtype=np.float32)
+        return Box(low=low, high=self.hsr_env.goal_space.high, dtype=np.float32)
 
 
 class MBHSRHindsightWrapper(HSRHindsightWrapper):
     def __init__(self, env, geofence):
         super().__init__(env, geofence)
-        self._mb_hsr_env = unwrap_env(
-            env, lambda e: isinstance(e, MultiBlockHSREnv))
+        self._mb_hsr_env = unwrap_env(env, lambda e: isinstance(e, MultiBlockHSREnv))
         self.observation_space = spaces.Tuple(
             self.observation_space.spaces.replace(
-                desired_goal=spaces.Tuple([self.goal_space] *
-                                          self.hsr_env.n_blocks)))
+                desired_goal=spaces.Tuple([self.goal_space] * self.hsr_env.n_blocks)))
 
     def _achieved_goal(self):
         return np.stack([
-            self._mb_hsr_env.block_pos(i).copy()
-            for i in range(self._mb_hsr_env.n_blocks)
+            self._mb_hsr_env.block_pos(i).copy() for i in range(self._mb_hsr_env.n_blocks)
         ])
 
     def _desired_goal(self):
         return self.hsr_env.goals
-

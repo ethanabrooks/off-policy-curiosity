@@ -5,15 +5,14 @@ from pathlib import Path
 # third party
 from gym.wrappers import TimeLimit
 import tensorflow as tf
-from hsr.util import env_wrapper, xml_setter
-from utils.argparse import parse_activation, parse_space, parse_vector, parse_groups, ACTIVATIONS
 
 # first party
-from sac.hindsight_wrapper import HSRHindsightWrapper, MBHSRHindsightWrapper
 from hsr.env import HSREnv, MoveGripperEnv, MultiBlockHSREnv
+from hsr.util import env_wrapper, xml_setter
+from sac.hindsight_wrapper import HSRHindsightWrapper, MBHSRHindsightWrapper
 from sac.train import HindsightTrainer, Trainer
-from scripts.util import add_network_args, add_trainer_args, add_train_args, \
-    add_hindsight_args
+from scripts.util import add_hindsight_args, add_network_args, add_train_args, add_trainer_args
+from utils.argparse import ACTIVATIONS, parse_activation, parse_groups, parse_space, parse_vector
 
 ENVIRONMENTS = dict(
     multi_block=MultiBlockHSREnv,

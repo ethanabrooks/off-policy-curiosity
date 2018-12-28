@@ -1,7 +1,8 @@
 from pathlib import Path
 
 import tensorflow as tf
-from utils.argparse import parse_activation, ACTIVATIONS, cast_to_int
+
+from utils.argparse import ACTIVATIONS, cast_to_int, parse_activation
 
 
 def add_network_args(parser):

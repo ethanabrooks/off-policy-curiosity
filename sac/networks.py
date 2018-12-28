@@ -85,10 +85,10 @@ class LstmAgent(AbstractAgent):
                 **self.state_feed(step.s),
                 **{
                     self.o1: step.o1,
-                    self.a:  step.a,
-                    self.r:  np.array(step.r) * self.reward_scale,
+                    self.a: step.a,
+                    self.r: np.array(step.r) * self.reward_scale,
                     self.o2: step.o2,
-                    self.t:  step.t
+                    self.t: step.t
                 }
             }
         return super().train_step(step)

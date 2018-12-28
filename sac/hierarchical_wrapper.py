@@ -18,8 +18,7 @@ class HierarchicalWrapper(HindsightWrapper):
         return goal
 
 
-class FrozenLakeHierarchicalWrapper(HierarchicalWrapper,
-                                    FrozenLakeHindsightWrapper):
+class FrozenLakeHierarchicalWrapper(HierarchicalWrapper, FrozenLakeHindsightWrapper):
     def __init__(self, env, n_boss_actions):
         super().__init__(env)
         fl = self.frozen_lake_env
@@ -30,13 +29,11 @@ class FrozenLakeHierarchicalWrapper(HierarchicalWrapper,
             boss=spaces.Box(
                 low=-np.inf,
                 high=np.inf,
-                shape=(np.shape(
-                    vectorize([obs.achieved_goal, obs.desired_goal])))),
+                shape=(np.shape(vectorize([obs.achieved_goal, obs.desired_goal])))),
             worker=spaces.Box(
                 low=-np.inf,
                 high=np.inf,
-                shape=(np.shape(
-                    vectorize([obs.observation, obs.desired_goal])))))
+                shape=(np.shape(vectorize([obs.observation, obs.desired_goal])))))
 
         self.action_space = Hierarchical(
             # DEBUG {{
@@ -69,5 +66,4 @@ class FrozenLakeHierarchicalWrapper(HierarchicalWrapper,
 
 
 Hierarchical = namedtuple('Hierarchical', 'boss worker')
-HierarchicalAgents = namedtuple('HierarchicalAgents',
-                                'boss worker initial_state')
+HierarchicalAgents = namedtuple('HierarchicalAgents', 'boss worker initial_state')

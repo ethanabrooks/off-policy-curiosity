@@ -2,11 +2,11 @@ import argparse
 
 import click
 import gym
-from utils.argparse import parse_groups
 
 from sac.train import Trainer
-from scripts.util import add_trainer_args, add_network_args, add_train_args
-import gym_bandits
+from scripts.util import add_network_args, add_train_args, add_trainer_args
+from utils.argparse import parse_groups
+
 
 def check_probability(ctx, param, value):
     if not (0 <= value <= 1):
@@ -21,8 +21,7 @@ def main(
         render,
         network_args,
 ):
-    trainer = Trainer(
-        env=env, network_args=network_args, **trainer_args)
+    trainer = Trainer(env=env, network_args=network_args, **trainer_args)
     trainer.train(**train_args, render=render)
 
 
