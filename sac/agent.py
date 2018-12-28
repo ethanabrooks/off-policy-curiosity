@@ -90,25 +90,23 @@ class AbstractAgent:
 
             # constructing V loss
             v1 = self.getV1(step.o1)
-            self.v1 = v1
             q1 = self.getQ(step.o1, A_sampled1)
             log_pi_sampled1 = self.policy_parameters_to_log_prob(A_sampled1, parameters)
             log_pi_sampled1 *= self.entropy_scale  # type: tf.Tensor
-            self.V_loss = V_loss = tf.reduce_mean(
+            V_loss = tf.reduce_mean(
                 0.5 * tf.square(v1 - (q1 - log_pi_sampled1)))
 
             # constructing Q loss
-            self.v2 = v2 = self.getV2(step.o2)
-            self.q1 = q = self.getQ(step.o1, step.a)
+            v2 = self.getV2(step.o2)
+            q = self.getQ(step.o1, step.a)
             not_done = 1 - step.t  # type: tf.Tensor
-            self.q_target = q_target = step.r + gamma * not_done * v2
-            self.Q_error = tf.square(q - q_target)
-            self.Q_loss = Q_loss = tf.reduce_mean(0.5 * self.Q_error)
+            td_error = step.r + gamma * not_done * v2 - q
+            Q_loss = tf.reduce_mean(0.5 * tf.square(td_error))
 
             # constructing pi loss
             q2 = self.getQ(step.o1, A_sampled2)
             log_pi_sampled2 = self.policy_parameters_to_log_prob(A_sampled1, parameters)
-            self.pi_loss = pi_loss = tf.reduce_mean(
+            pi_loss = tf.reduce_mean(
                 log_pi_sampled2 * tf.stop_gradient(log_pi_sampled2 - q2 + v1))
 
         pi_norm = update(self.pi_network, pi_loss, tape)
