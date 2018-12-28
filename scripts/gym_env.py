@@ -6,6 +6,7 @@ import gym
 from sac.train import Trainer
 from scripts.util import add_network_args, add_train_args, add_trainer_args
 from utils.argparse import parse_groups
+import gym_bandits
 
 
 def check_probability(ctx, param, value):
