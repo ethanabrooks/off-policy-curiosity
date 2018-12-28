@@ -52,7 +52,8 @@ class Trainer:
               load_path: Path,
               logdir: Path,
               render: bool = False,
-              save_threshold: int = None):
+              save_threshold: int = None,
+              log_interval: int = 1):
 
         if logdir:
             writer = summary.create_file_writer(str(logdir))
@@ -69,6 +70,7 @@ class Trainer:
         # config = projector.ProjectorConfig()
         # projector.visualize_embeddings(writer, config)
 
+        start_time = log_time = time.time()
         past_returns = deque(maxlen=save_threshold)
         best_average = -np.inf
 
@@ -101,15 +103,17 @@ class Trainer:
             # saver.save(self.sess, str(save_path).replace('<episode>', str(episodes)))
             self.time_steps.assign_add(self.episode_count['time_steps'])
 
-            print_statement = f'({"EVAL" if self.is_eval_period() else "TRAIN"}) ' \
-                              f'Episode: {episodes}\t ' \
-                              f'Time Steps: {int(self.time_steps)}\t ' \
-                              f'Reward: {episode_return}\t ' \
-                              f'Success: {self.episode_count[SUCCESS_KWD]}'
-            print(print_statement)
 
-            if logdir:
+            if logdir and time.time() - log_time > log_interval:
+                print_statement = f'({"EVAL" if self.is_eval_period() else "TRAIN"}) ' \
+                                  f'Episode: {episodes}\t ' \
+                                  f'Time Steps: {int(self.time_steps)}\t ' \
+                                  f'Reward: {episode_return}\t ' \
+                                  f'Success: {self.episode_count[SUCCESS_KWD]}'
+                print(print_statement)
+                log_time = time.time()
                 with tf.contrib.summary.record_summaries_every_n_global_steps(1):
+                    summary.scalar('fps', self.time_steps / (time.time() - start_time))
                     if self.is_eval_period():
                         summary.scalar('eval return', episode_return)
                     else:
@@ -132,7 +136,6 @@ class Trainer:
     def run_episode(self, o1, eval_period, render):
         episode_count = Counter()
         episode_mean = Counter()
-        tick = time.time()
         for time_steps in itertools.count(1):
             a = self.agent.get_actions(self.preprocess_obs(o1), sample=not eval_period)
             o2, r, t, info = self.step(a, render)
@@ -144,12 +147,9 @@ class Trainer:
             self.add_to_buffer(Step(o1=o1, a=a, r=r, o2=o2, t=t))
             o1 = o2
             # noinspection PyTypeChecker
-            fps = 1 / float(time.time() - tick)
-            episode_mean.update(Counter(fps=fps, **info.get('log mean', {})))
             # noinspection PyTypeChecker
             episode_count.update(
                 Counter(reward=r, time_steps=1, **info.get('log count', {})))
-            tick = time.time()
             if t:
                 for k in episode_mean:
                     episode_count[k] = episode_mean[k] / float(time_steps)
