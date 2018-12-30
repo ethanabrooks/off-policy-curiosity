@@ -1,5 +1,5 @@
 import argparse
-from collections.__init__ import namedtuple
+from collections import namedtuple
 from contextlib import contextmanager
 from itertools import filterfalse
 from pathlib import Path
@@ -13,9 +13,7 @@ from gym.spaces import Box
 import numpy as np
 import tensorflow as tf
 
-from sac.utils import parametric_relu
-
-# PARSING
+from utils.tensorflow import parametric_relu
 
 
 def parse_groups(parser: argparse.ArgumentParser):

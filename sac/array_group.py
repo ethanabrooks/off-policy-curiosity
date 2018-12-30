@@ -1,9 +1,7 @@
-# stdlib
 from numbers import Number
 import operator
 from typing import Callable, Iterable, Union
 
-# third party
 import numpy as np
 
 X = Union[Iterable, np.ndarray, Number, bool]

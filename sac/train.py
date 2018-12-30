@@ -16,7 +16,7 @@ import tensorflow as tf
 from sac.hindsight_wrapper import HindsightWrapper
 from sac.agent import AbstractAgent
 from sac.policies import CategoricalPolicy, GaussianPolicy
-from sac.replay_buffer import ReplayBuffer
+from utils.replay_buffer import ReplayBuffer
 from utils.types import Obs, Shape, Step
 from sac.utils import create_sess, get_space_attrs, space_to_size, unwrap_env, vectorize
 
