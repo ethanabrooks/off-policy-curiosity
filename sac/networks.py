@@ -8,7 +8,7 @@ from tensorflow.contrib.rnn import BasicLSTMCell, LSTMStateTuple
 
 # first party
 from sac.agent import AbstractAgent, NetworkOutput
-from sac.utils import ArrayLike, Step
+from utils.types import ArrayLike, Step
 
 
 class SACXAgent(AbstractAgent):
