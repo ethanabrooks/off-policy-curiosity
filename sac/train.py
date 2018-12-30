@@ -13,7 +13,7 @@ from gym.wrappers import TimeLimit
 import numpy as np
 import tensorflow as tf
 
-from environments.hindsight_wrapper import HindsightWrapper
+from sac.hindsight_wrapper import HindsightWrapper
 from sac.agent import AbstractAgent
 from sac.policies import CategoricalPolicy, GaussianPolicy
 from sac.replay_buffer import ReplayBuffer
@@ -79,6 +79,7 @@ class Trainer:
     def train(self,
               load_path: Path,
               logdir: Path,
+              log_interval: int,
               render: bool = False,
               save_threshold: int = None):
         saver = tf.train.Saver()

@@ -4,8 +4,8 @@ import gym
 import tensorflow as tf
 
 # first party
-from environments.hindsight_wrapper import MountaincarHindsightWrapper
-from sac.networks import MlpAgent
+from sac.hindsight_wrapper import MountaincarHindsightWrapper
+from sac.networks import MLPAgent
 from sac.train import HindsightTrainer
 
 
@@ -32,7 +32,7 @@ def cli(seed, device_num, buffer_size, activation, n_layers, layer_size, learnin
         save_path, load_path, render, n_goals):
     HindsightTrainer(
         env=MountaincarHindsightWrapper(gym.make('MountainCarContinuous-v0')),
-        base_agent=MlpAgent,
+        base_agent=MLPAgent,
         seq_len=None,
         seed=seed,
         device_num=device_num,

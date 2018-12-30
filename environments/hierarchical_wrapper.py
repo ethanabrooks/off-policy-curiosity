@@ -6,7 +6,7 @@ from gym import spaces
 import numpy as np
 
 # first party
-from environments.hindsight_wrapper import FrozenLakeHindsightWrapper, HindsightWrapper
+from sac.hindsight_wrapper import FrozenLakeHindsightWrapper, HindsightWrapper
 from sac.utils import vectorize
 
 

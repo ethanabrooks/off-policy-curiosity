@@ -11,7 +11,7 @@ import numpy as np
 from six import StringIO
 
 # first party
-from environments.hsr import Observation
+from hsr.hsr import Observation
 
 MAPS = gym.envs.toy_text.frozen_lake.MAPS
 MAPS["2x2"] = ["FF"] * 2

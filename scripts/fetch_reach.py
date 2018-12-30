@@ -7,7 +7,7 @@ import numpy as np
 import tensorflow as tf
 
 # first party
-from environments.hindsight_wrapper import HindsightWrapper
+from sac.hindsight_wrapper import HindsightWrapper
 from sac.train import HindsightTrainer
 
 ACHIEVED_GOAL = 'achieved_goal'

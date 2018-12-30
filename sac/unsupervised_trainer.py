@@ -6,7 +6,7 @@ from collections import Counter, namedtuple
 from gym.spaces import Box
 import numpy as np
 
-from environments.hsr import HSREnv, distance_between
+from hsr.hsr import HSREnv, distance_between
 from sac.replay_buffer import ReplayBuffer
 from sac.train import Trainer
 from sac.utils import Step, unwrap_env

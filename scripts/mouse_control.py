@@ -10,9 +10,10 @@ import ipdb
 import numpy as np
 
 # first party
-from environments.hsr import MoveGripperEnv, print1
+from hsr.hsr import MoveGripperEnv, print1
 from mujoco import ObjType
-from scripts.hsr import make_box, mutate_xml
+from sac.util import make_box
+from scripts.hsr import mutate_xml
 
 saved_pos = None
 

@@ -11,12 +11,12 @@ from gym.spaces import Box
 import numpy as np
 
 # first party
-from environments import hsr
-from hsr.frozen_lake import FrozenLakeEnv
-import hsr.hsr
-from hsr.hsr import HSREnv, MultiBlockHSREnv
-from sac.array_group import ArrayGroup
-from sac.utils import Step, unwrap_env, vectorize
+import hsr
+from hsr.env import HSREnv, MultiBlockHSREnv
+from utils.array_group import ArrayGroup
+from utils.gym import unwrap_env
+from utils.numpy import vectorize
+from utils.types import Step
 
 Goal = namedtuple('Goal', 'gripper block')
 
@@ -122,7 +122,7 @@ class HSRHindsightWrapper(HindsightWrapper):
         super().__init__(env)
         self.hsr_env = unwrap_env(env, lambda e: isinstance(e, HSREnv))
         self._geofence = self.hsr_env.geofence
-        hsr_spaces = hsr.Observation(*self.hsr_env.observation_space.spaces)
+        hsr_spaces = hsr.env.Observation(*self.hsr_env.observation_space.spaces)
         self.observation_space = spaces.Tuple(
             Observation(
                 observation=hsr_spaces.observation,
@@ -132,7 +132,7 @@ class HSRHindsightWrapper(HindsightWrapper):
 
     def _add_goals(self, env_obs):
         observation = Observation(
-            observation=hsr.hsr.Observation(*env_obs).observation,
+            observation=hsr.env.Observation(*env_obs).observation,
             desired_goal=self._desired_goal(),
             achieved_goal=self._achieved_goal())
         # assert self.observation_space.contains(observation)
@@ -171,33 +171,3 @@ class MBHSRHindsightWrapper(HSRHindsightWrapper):
 
     def _desired_goal(self):
         return self.hsr_env.goals
-
-
-class FrozenLakeHindsightWrapper(HindsightWrapper):
-    def __init__(self, env):
-        self.frozen_lake_env = unwrap_env(env, lambda e: isinstance(e, FrozenLakeEnv))
-        super().__init__(env)
-
-    def _achieved_goal(self):
-        fl_env = self.frozen_lake_env
-        return np.array([fl_env.s // fl_env.nrow, fl_env.s % fl_env.ncol])
-
-    def _is_success(self, achieved_goal, desired_goal):
-        return (achieved_goal == desired_goal).prod(axis=-1)
-
-    def _desired_goal(self):
-        return self.frozen_lake_env.goal_vector()
-
-    def step(self, action):
-        o2, r, t, info = self.env.step(action)
-        new_o2 = Observation(
-            observation=np.array(o2.observation),
-            desired_goal=self._desired_goal(),
-            achieved_goal=self._achieved_goal())
-        return new_o2, r, t, info
-
-    def reset(self):
-        return Observation(
-            observation=np.array(self.env.reset().observation),
-            desired_goal=self._desired_goal(),
-            achieved_goal=self._achieved_goal())
