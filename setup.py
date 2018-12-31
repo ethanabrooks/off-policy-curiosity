@@ -21,18 +21,10 @@ setup(
     entry_points=dict(console_scripts=[
         'gym-env=scripts.gym_env:cli',
         'frozen-lake=scripts.frozen_lake:cli',
-        'hfl=scripts.hierarchical_frozen_lake:cli',
-        'hmt=scripts.hierarchical_shift:cli',
-        'lift=scripts.lift:cli',
-        'shift=scripts.shift:cli',
         'hsr=scripts.hsr:cli',
         'mountaincar=scripts.mountaincar:cli',
         'unsupervised=scripts.unsupervised:cli',
         'mouse-control=scripts.mouse_control:cli',
-        'crawl=scripts.crawl_events:main',
-        'table=scripts.table:main',
-        'plot=scripts.plot:main',
-        'tb=scripts.tensorboard:main',
     ]),
     scripts=['bin/load', 'bin/filter', 'bin/correlate'],
     install_requires=[
