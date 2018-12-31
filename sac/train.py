@@ -137,7 +137,7 @@ class Trainer:
                 else:
                     for k, v in self.episode_count.items():
                         if np.isscalar(v):
-                            summary.value.add(tag=k.replace('_', ' '), simple_value=v)
+                            summary.value.add(tag=k, simple_value=v)
                 tb_writer.add_summary(summary, time_steps)
                 tb_writer.flush()
 
