@@ -2,7 +2,7 @@
 import tensorflow as tf
 
 from sac.agent import AbstractAgent
-from sac.utils import make_network
+from utils.tensorflow import make_network
 
 EPS = 1E-6
 
