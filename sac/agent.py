@@ -166,26 +166,6 @@ class AbstractAgent:
         return tf.reshape(
             self.q_network(tf.concat([o, self.preprocess_action(a)], axis=1)), [-1])
 
-    def get_v1(self, o1: np.ndarray):
-        return self.sess.run(self.v1, feed_dict={self.o1: [o1]})[0]
-
-    def get_value(self, step: Step):
-        return self.sess.run(
-            self.v1, feed_dict={
-                self.o1: step.o1,
-            })
-
-    def td_error(self, step: Step):
-        return self.sess.run(
-            self.Q_error,
-            feed_dict={
-                self.o1: step.o1,
-                self.a:  step.a,
-                self.r:  step.r,
-                self.o2: step.o2,
-                self.t:  step.t
-            })
-
     @abstractmethod
     def pi_network(self, inputs: tf.Tensor) -> NetworkOutput:
         pass
