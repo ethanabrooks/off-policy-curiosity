@@ -211,7 +211,7 @@ class Trainer:
         class Agent(policy_type):
             def __init__(self):
                 super(Agent, self).__init__(
-                    o_size=observation_space.shape[0],
+                    o_size=space_to_size(observation_space),
                     a_size=space_to_size(action_space),
                     **kwargs)
 
