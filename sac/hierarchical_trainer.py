@@ -7,12 +7,9 @@ import numpy as np
 import tensorflow as tf
 
 # first party
-from hsr.hierarchical_wrapper import (FrozenLakeHierarchicalWrapper, Hierarchical, HierarchicalAgents,
-                                               HierarchicalWrapper)
 from sac.hindsight_wrapper import Observation
 from sac.agent import NetworkOutput
 from sac.train import Agents, Trainer
-from sac.utils import Step, vectorize
 
 
 class HierarchicalTrainer(Trainer):
