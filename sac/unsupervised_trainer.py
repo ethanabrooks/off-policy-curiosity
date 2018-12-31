@@ -9,7 +9,7 @@ import numpy as np
 from hsr.hsr import HSREnv, distance_between
 from sac.replay_buffer import ReplayBuffer
 from sac.train import Trainer
-from sac.old_utils import Step, unwrap_env
+from sac.utils import Step, unwrap_env
 
 Samples = namedtuple('Samples', 'train valid test')
 
