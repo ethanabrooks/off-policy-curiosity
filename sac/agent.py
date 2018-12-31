@@ -8,8 +8,7 @@ import numpy as np
 import tensorflow as tf
 
 # first party
-from utils.tensorflow import make_network
-from utils.types import ArrayLike, Step
+from utils import ArrayLike, Step, make_network
 
 NetworkOutput = namedtuple('NetworkOutput', 'output state')
 

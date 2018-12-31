@@ -13,10 +13,7 @@ import numpy as np
 # first party
 import hsr
 from hsr.env import HSREnv, MultiBlockHSREnv
-from utils.array_group import ArrayGroup
-from utils.gym import unwrap_env
-from utils.numpy import vectorize
-from utils.types import Step
+from utils import ArrayGroup, unwrap_env, vectorize, Step
 
 Goal = namedtuple('Goal', 'gripper block')
 
