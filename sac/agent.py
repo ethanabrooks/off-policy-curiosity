@@ -56,12 +56,12 @@ class AbstractAgent:
             self.embed_optimizer = tf.train.AdamOptimizer(
                 learning_rate=embed_args.pop('learning_rate', learning_rate))
 
-    # @tf.contrib.eager.defun
+    @tf.contrib.eager.defun
     def _sample_action(self, o1: tf.Tensor) -> np.array:
         parameters = self.get_policy_params(tf.reshape(o1, [1, self.o_size]))
         return self.policy_parameters_to_sample(parameters)[0]
 
-    # @tf.contrib.eager.defun
+    @tf.contrib.eager.defun
     def _greedy_action(self, o1: tf.Tensor) -> np.array:
         parameters = self.get_policy_params(tf.reshape(o1, [1, self.o_size]))
         return self.policy_parameters_to_max_likelihood_action(parameters)[0]
@@ -73,7 +73,7 @@ class AbstractAgent:
         else:
             return self._greedy_action(o).numpy()
 
-    # @tf.contrib.eager.defun
+    @tf.contrib.eager.defun
     def _train_step(self, step: Step):
         gamma = tf.constant(0.99)
         tau = 0.01
