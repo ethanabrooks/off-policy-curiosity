@@ -39,6 +39,7 @@ class Trainer:
                  preprocess_func=None,
                  **kwargs):
 
+        tf.enable_eager_execution()
         if seed is not None:
             np.random.seed(seed)
             tf.set_random_seed(seed)
@@ -68,16 +69,9 @@ class Trainer:
 
         self.action_space = env.action_space
         self.agent = self.build_agent(
-            sess=self.sess,
-            action_space=env.action_space,
-            observation_space=observation_space,
-            **kwargs)
+            action_space=env.action_space, observation_space=observation_space, **kwargs)
 
         self.global_step = tf.Variable(0, name='global_step', trainable=False)
-        self.episode_time_step = tf.placeholder(tf.int32, name='episode_time_steps')
-        self.increment_global_step = tf.assign_add(self.global_step,
-                                                   self.episode_time_step)
-        self.sess.run(self.global_step.initializer)
 
     def train(self,
               load_path: Path,
@@ -85,7 +79,7 @@ class Trainer:
               log_interval: int,
               render: bool = False,
               save_threshold: int = None):
-        saver = tf.train.Saver()
+        # saver = tf.train.Saver()
         tb_writer = None
         if load_path:
             saver.restore(self.sess, load_path)
@@ -115,14 +109,15 @@ class Trainer:
                 else:
                     best_average = new_average
 
-            if logdir and episodes % 10 == 1 and passes_save_threshold:
-                print("model saved in path:", saver.save(
-                    self.sess, save_path=str(logdir)))
-                saver.save(self.sess, str(logdir).replace('<episode>', str(episodes)))
+            # if logdir and episodes % 10 == 1 and passes_save_threshold:
+            # print("model saved in path:", saver.save(
+            #     self.sess, save_path=str(logdir)))
+            # saver.save(self.sess, str(logdir).replace('<episode>', str(episodes)))
 
-            time_steps, _ = self.sess.run(
-                [self.global_step, self.increment_global_step],
-                {self.episode_time_step: self.episode_count['time_steps']})
+            step_delta = tf.convert_to_tensor(
+                self.episode_count['time_steps'], dtype=tf.int32)
+            tf.assign_add(self.global_step, step_delta)
+            time_steps = self.global_step.numpy()
             print_statement = f'({"EVAL" if self.is_eval_period() else "TRAIN"}) ' \
                               f'Episode: {episodes}\t ' \
                               f'Time Steps: {time_steps}\t ' \
