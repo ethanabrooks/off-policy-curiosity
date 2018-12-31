@@ -18,9 +18,9 @@ from sac.agent import AbstractAgent
 from sac.policies import CategoricalPolicy, GaussianPolicy
 from utils.replay_buffer import ReplayBuffer
 from utils.types import Obs, Shape, Step
-from utils.numpy import vectorize
-from utils.gym import get_space_attrs, space_to_size, unwrap_env
 from utils.tensorflow import create_sess
+from utils.numpy import vectorize
+from utils.gym import get_space_attrs, get_env_attr, space_to_size, unwrap_env
 
 Agents = namedtuple('Agents', 'train act')
 
