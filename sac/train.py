@@ -98,6 +98,9 @@ class Trainer:
                 eval_period=self.is_eval_period() and load_path is None)
 
             episode_return = self.episode_count['reward']
+            time_steps_tensor = tf.convert_to_tensor(self.episode_count['time_steps'],
+                                          dtype=tf.int64)
+            tf.assign_add(self.global_step, time_steps_tensor)
 
             # save model
             passes_save_threshold = True
