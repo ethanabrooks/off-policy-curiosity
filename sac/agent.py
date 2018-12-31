@@ -9,7 +9,7 @@ import tensorflow as tf
 
 # first party
 from utils.tensorflow import make_network
-from utils.types import Step, ArrayLike
+from utils.types import ArrayLike, Step
 
 NetworkOutput = namedtuple('NetworkOutput', 'output state')
 
