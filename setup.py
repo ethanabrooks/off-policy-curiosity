@@ -28,6 +28,9 @@ setup(
     ]),
     scripts=['bin/load', 'bin/filter', 'bin/correlate'],
     install_requires=[
-        'tensorflow>=1.6.0', 'scipy==1.1.0', 'gym==0.10.4', 'pygame==1.9.3', 'numpy',
-        'utils'
+        'tensorflow>=1.6.0',
+        'scipy==1.1.0',
+        'gym==0.10.4',
+        'pygame==1.9.3',
+        'numpy',
     ])
