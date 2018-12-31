@@ -68,10 +68,10 @@ class Trainer:
 
         self.action_space = env.action_space
         self.agent = self.build_agent(
-                sess=self.sess,
-                action_space=env.action_space,
-                observation_space=observation_space,
-                **kwargs)
+            sess=self.sess,
+            action_space=env.action_space,
+            observation_space=observation_space,
+            **kwargs)
 
         self.global_step = tf.Variable(0, name='global_step', trainable=False)
         self.episode_time_step = tf.placeholder(tf.int32, name='episode_time_steps')
@@ -203,9 +203,6 @@ class Trainer:
                     observation_space: gym.Space,
                     action_space: gym.Space = None,
                     **kwargs) -> AbstractAgent:
-        if action_space is None:
-            action_space = self.action_space
-
         if isinstance(action_space, spaces.Discrete):
             policy_type = CategoricalPolicy
         else:
