@@ -71,7 +71,7 @@ class Trainer:
         self.agent = self.build_agent(
             action_space=env.action_space, observation_space=observation_space, **kwargs)
 
-        self.global_step = tf.Variable(0, name='global_step', trainable=False)
+        self.global_step = tf.train.get_or_create_global_step()
 
     def train(self,
               load_path: Path,
@@ -85,7 +85,7 @@ class Trainer:
             saver.restore(self.sess, load_path)
             print("Model restored from", load_path)
         if logdir:
-            tb_writer = tf.summary.FileWriter(logdir=str(logdir), graph=self.sess.graph)
+            tb_writer = tf.contrib.summary.create_file_writer(logdir=str(logdir))
 
         past_returns = deque(maxlen=save_threshold)
         best_average = -np.inf
@@ -114,9 +114,6 @@ class Trainer:
             #     self.sess, save_path=str(logdir)))
             # saver.save(self.sess, str(logdir).replace('<episode>', str(episodes)))
 
-            step_delta = tf.convert_to_tensor(
-                self.episode_count['time_steps'], dtype=tf.int32)
-            tf.assign_add(self.global_step, step_delta)
             time_steps = self.global_step.numpy()
             print_statement = f'({"EVAL" if self.is_eval_period() else "TRAIN"}) ' \
                               f'Episode: {episodes}\t ' \
@@ -126,15 +123,14 @@ class Trainer:
             print(print_statement)
 
             if logdir:
-                summary = tf.Summary()
-                if self.is_eval_period():
-                    summary.value.add(tag='eval return', simple_value=episode_return)
-                else:
-                    for k, v in self.episode_count.items():
-                        if np.isscalar(v):
-                            summary.value.add(tag=k.replace('_', ' '), simple_value=v)
-                tb_writer.add_summary(summary, time_steps)
-                tb_writer.flush()
+                with tb_writer.as_default(), tf.contrib.summary.always_record_summaries():
+                    if self.is_eval_period():
+                        tf.contrib.summary.scalar('eval return', episode_return)
+                    else:
+                        for k, v in self.episode_count.items():
+                            if np.isscalar(v):
+                                tf.contrib.summary.scalar(k, float(v))
+                    tb_writer.flush()
 
     def is_eval_period(self):
         return self.episodes % 100 == 0
