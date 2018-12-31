@@ -89,42 +89,38 @@ class AbstractAgent:
             A_sampled2 = self.policy_parameters_to_sample(parameters)
 
             # constructing V loss
-            with tf.control_dependencies([A_sampled2]):
-                v1 = self.getV1(step.o1)
-                self.v1 = v1
-                q1 = self.getQ(step.o1, A_sampled1)
-                log_pi_sampled1 = self.policy_parameters_to_log_prob(A_sampled1, parameters)
-                log_pi_sampled1 *= self.entropy_scale  # type: tf.Tensor
-                self.V_loss = V_loss = tf.reduce_mean(
-                    0.5 * tf.square(v1 - (q1 - log_pi_sampled1)))
-                self.train_V, self.V_grad = update(network=self.v1_network, loss=V_loss)
+            v1 = self.getV1(step.o1)
+            self.v1 = v1
+            q1 = self.getQ(step.o1, A_sampled1)
+            log_pi_sampled1 = self.policy_parameters_to_log_prob(A_sampled1, parameters)
+            log_pi_sampled1 *= self.entropy_scale  # type: tf.Tensor
+            self.V_loss = V_loss = tf.reduce_mean(
+                0.5 * tf.square(v1 - (q1 - log_pi_sampled1)))
+            self.train_V, self.V_grad = update(network=self.v1_network, loss=V_loss)
 
             # constructing Q loss
-            with tf.control_dependencies([self.V_grad]):
-                self.v2 = v2 = self.getV2(step.o2)
-                self.q1 = q = self.getQ(step.o1, step.a)
-                not_done = 1 - step.t  # type: tf.Tensor
-                self.q_target = q_target = step.r + gamma * not_done * v2
-                self.Q_error = tf.square(q - q_target)
-                self.Q_loss = Q_loss = tf.reduce_mean(0.5 * self.Q_error)
-                self.train_Q, self.Q_grad = update(network=self.q_network, loss=Q_loss)
+            self.v2 = v2 = self.getV2(step.o2)
+            self.q1 = q = self.getQ(step.o1, step.a)
+            not_done = 1 - step.t  # type: tf.Tensor
+            self.q_target = q_target = step.r + gamma * not_done * v2
+            self.Q_error = tf.square(q - q_target)
+            self.Q_loss = Q_loss = tf.reduce_mean(0.5 * self.Q_error)
+            self.train_Q, self.Q_grad = update(network=self.q_network, loss=Q_loss)
 
             # constructing pi loss
-            with tf.control_dependencies([self.Q_grad]):
-                q2 = self.getQ(step.o1, A_sampled2)
-                log_pi_sampled2 = self.policy_parameters_to_log_prob(A_sampled1, parameters)
-                log_pi_sampled2 *= self.entropy_scale  # type: tf.Tensor
-                self.pi_loss = pi_loss = tf.reduce_mean(
-                    log_pi_sampled2 * tf.stop_gradient(log_pi_sampled2 - q2 + v1))
-                self.train_pi, self.pi_grad = update(network=self.pi_network, loss=pi_loss)
+            q2 = self.getQ(step.o1, A_sampled2)
+            log_pi_sampled2 = self.policy_parameters_to_log_prob(A_sampled1, parameters)
+            log_pi_sampled2 *= self.entropy_scale  # type: tf.Tensor
+            self.pi_loss = pi_loss = tf.reduce_mean(
+                log_pi_sampled2 * tf.stop_gradient(log_pi_sampled2 - q2 + v1))
+            self.train_pi, self.pi_grad = update(network=self.pi_network, loss=pi_loss)
 
-            with tf.control_dependencies([self.pi_grad]):
-                soft_update_xi_bar_ops = [
-                    tf.assign(xbar, tau * x + (1 - tau) * xbar)
-                    for (xbar, x) in zip(self.v2_network.trainable_variables,
-                                         self.v1_network.trainable_variables)
-                ]
-                self.soft_update_xi_bar = tf.group(*soft_update_xi_bar_ops)
+            soft_update_xi_bar_ops = [
+                tf.assign(xbar, tau * x + (1 - tau) * xbar)
+                for (xbar, x) in zip(self.v2_network.trainable_variables,
+                                     self.v1_network.trainable_variables)
+            ]
+            self.soft_update_xi_bar = tf.group(*soft_update_xi_bar_ops)
             # self.check = tf.add_check_numerics_ops()
             self.entropy = tf.reduce_mean(self.entropy_from_params(parameters))
             # ensure that xi and xi_bar are the same at initialization
