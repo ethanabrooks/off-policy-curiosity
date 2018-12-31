@@ -19,7 +19,8 @@ from sac.policies import CategoricalPolicy, GaussianPolicy
 from utils.replay_buffer import ReplayBuffer
 from utils.types import Obs, Shape, Step
 from utils.numpy import vectorize
-from sac.utils import create_sess, get_space_attrs, space_to_size, unwrap_env
+from utils.gym import get_space_attrs, space_to_size, unwrap_env
+from sac.utils import create_sess
 
 Agents = namedtuple('Agents', 'train act')
 
