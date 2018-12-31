@@ -66,13 +66,13 @@ class GaussianMixturePolicy(AbstractAgent):
 
 class CategoricalPolicy(AbstractAgent):
     def __init__(self, a_size, o_size, network_args, **kwargs):
-        super().__init__(
-            a_size=a_size, o_size=o_size, network_args=network_args, **kwargs)
         self.pi_network = make_network(
             o_size,
             a_size,
             **network_args,
         )
+        super().__init__(
+            a_size=a_size, o_size=o_size, network_args=network_args, **kwargs)
 
     def get_policy_params(self, obs):
         return self.pi_network(obs)
