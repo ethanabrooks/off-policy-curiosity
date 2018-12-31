@@ -7,9 +7,14 @@ import numpy as np
 import tensorflow as tf
 
 # first party
+from sac.hierarchical_wrapper import (Hierarchical,
+                                    HierarchicalAgents,
+                                               HierarchicalWrapper)
 from sac.hindsight_wrapper import Observation
 from sac.agent import NetworkOutput
 from sac.train import Agents, Trainer
+from utils.types import Step
+from utils.numpy import vectorize
 
 
 class HierarchicalTrainer(Trainer):
