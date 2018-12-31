@@ -50,7 +50,6 @@ class AbstractAgent:
         self.v2_network = make_network(o_size, 1, **network_args)
 
         self.v2_network.set_weights(self.v1_network.get_weights())
-        self.global_step = tf.Variable(0, name='global_step')
         self.optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
         if embed_args:
             self.embed_optimizer = tf.train.AdamOptimizer(
@@ -115,7 +114,8 @@ class AbstractAgent:
             q2 = self.getQ(step.o1, A_sampled2)
             log_pi_sampled2 = self.policy_parameters_to_log_prob(A_sampled1, parameters)
             self.pi_loss = pi_loss = tf.reduce_mean(
-                log_pi_sampled2 * (log_pi_sampled2 * self.entropy_scale - tf.stop_gradient(q2 + v1)))
+                log_pi_sampled2 *
+                (log_pi_sampled2 * self.entropy_scale - tf.stop_gradient(q2 + v1)))
 
         pi_norm = update(self.pi_network, pi_loss, tape)
         V_norm = update(self.v1_network, V_loss, tape)
