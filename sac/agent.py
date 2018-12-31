@@ -100,13 +100,13 @@ class AbstractAgent:
             log_pi_sampled1 = self.policy_parameters_to_log_prob(A_sampled1, parameters)
             log_pi_sampled1 *= self.entropy_scale  # type: tf.Tensor
             self.V_loss = V_loss = tf.reduce_mean(
-                0.5 * tf.square(v1 - tf.stop_gradient(q1 - log_pi_sampled1)))
+                0.5 * tf.square(v1 - (q1 - log_pi_sampled1)))
 
             # constructing Q loss
             self.v2 = v2 = self.getV2(step.o2)
             self.q1 = q = self.getQ(step.o1, step.a)
             not_done = 1 - step.t  # type: tf.Tensor
-            self.td_error = tf.stop_gradient(step.r + gamma * not_done * v2) - q
+            self.td_error = (step.r + gamma * not_done * v2) - q
             self.Q_loss = Q_loss = tf.reduce_mean(0.5 * tf.square(self.td_error))
 
             # constructing pi loss
@@ -114,8 +114,7 @@ class AbstractAgent:
             log_pi_sampled2 = self.policy_parameters_to_log_prob(A_sampled1, parameters)
             log_pi_sampled2 *= self.entropy_scale  # type: tf.Tensor
             self.pi_loss = pi_loss = tf.reduce_mean(
-                log_pi_sampled2 *
-                tf.stop_gradient(log_pi_sampled2 - tf.stop_gradient(q2 + v1)))
+                log_pi_sampled2 * (log_pi_sampled2 - tf.stop_gradient(q2 + v1)))
 
         pi_norm = update(self.pi_network, pi_loss, tape)
         V_norm = update(self.v1_network, V_loss, tape)
