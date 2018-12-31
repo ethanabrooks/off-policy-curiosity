@@ -102,9 +102,8 @@ class AbstractAgent:
             self.v2 = v2 = self.getV2(step.o2)
             self.q1 = q = self.getQ(step.o1, step.a)
             not_done = 1 - step.t  # type: tf.Tensor
-            self.q_target = q_target = step.r + gamma * not_done * v2
-            self.Q_error = tf.square(q - q_target)
-            self.Q_loss = Q_loss = tf.reduce_mean(0.5 * self.Q_error)
+            td_error = (step.r + gamma * not_done * v2) - q
+            self.Q_loss = Q_loss = tf.reduce_mean(0.5 * tf.square(td_error))
             self.train_Q, self.Q_grad = update(network=self.q_network, loss=Q_loss)
 
             # constructing pi loss
@@ -140,7 +139,6 @@ class AbstractAgent:
             dict(
                 entropy=self.entropy,
                 soft_update_xi_bar=self.soft_update_xi_bar,
-                Q_error=self.Q_error,
                 V_loss=self.V_loss,
                 Q_loss=self.Q_loss,
                 pi_loss=self.pi_loss,
