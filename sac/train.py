@@ -161,6 +161,10 @@ class Trainer:
                 self.preprocess_obs(o1),
                 sample=not eval_period,
             )
+            self.fetches.append((time_steps, a))
+            with Path('/tmp/pickles').open('wb') as f:
+                pickle.dump(self.fetches, f)
+
             o2, r, t, info = self.step(a, render)
             if 'print' in info:
                 print('Time step:', time_steps, info['print'])
@@ -191,7 +195,7 @@ class Trainer:
             for i in range(self.n_train_steps):
                 train_step = self.train_step()
                 self.fetches.append(train_step)
-                with Path('/tmp/fetches').open('wb') as f:
+                with Path('/tmp/pickles').open('wb') as f:
                     pickle.dump(self.fetches, f)
                 counter.update(
                     Counter({

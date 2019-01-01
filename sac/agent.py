@@ -46,8 +46,6 @@ class AbstractAgent:
         self.reward_scale = reward_scale
         self.sess = sess
 
-        network_args.update(kernel_initializer=tf.constant_initializer(1.),
-                bias_initializer=tf.constant_initializer(0.))
         self.q_network = make_network(a_size + o_size, 1, **network_args)
         self.v1_network = make_network(o_size, 1, **network_args)
         self.v2_network = make_network(o_size, 1, **network_args)
@@ -68,10 +66,6 @@ class AbstractAgent:
 
         gamma = tf.constant(0.99)
         tau = 0.01
-        parameters = self.get_policy_params(step.o1)
-        self.A_sampled1 = self.policy_parameters_to_sample(parameters)
-        self.A_max_likelihood = self.policy_parameters_to_max_likelihood_action(
-            parameters)
 
         def update(network: tf.keras.Model, loss: tf.Tensor):
             variables = network.trainable_variables
@@ -86,8 +80,10 @@ class AbstractAgent:
 
         with tf.variable_scope('agent'):
             parameters = self.get_policy_params(step.o1)
-            A_sampled1 = self.policy_parameters_to_sample(parameters)
-            A_sampled2 = self.policy_parameters_to_sample(parameters)
+            A_sampled1 = self.A_sampled1 = self.policy_parameters_to_sample(parameters)
+            A_sampled2 = self.A_sampled2 = self.policy_parameters_to_sample(parameters)
+            self.A_max_likelihood = self.policy_parameters_to_max_likelihood_action(
+                parameters)
 
             # constructing V loss
             v1 = self.getV1(step.o1)
