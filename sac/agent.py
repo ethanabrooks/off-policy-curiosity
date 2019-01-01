@@ -46,6 +46,8 @@ class AbstractAgent:
         self.reward_scale = reward_scale
         self.sess = sess
 
+        network_args.update(kernel_initializer=tf.constant_initializer(1.),
+                bias_initializer=tf.constant_initializer(0.))
         self.q_network = make_network(a_size + o_size, 1, **network_args)
         self.v1_network = make_network(o_size, 1, **network_args)
         self.v2_network = make_network(o_size, 1, **network_args)
@@ -133,21 +135,8 @@ class AbstractAgent:
             self.o2: step.o2,
             self.t:  step.t,
         }
-
-        return self.sess.run(
-            dict(
-                entropy=self.entropy,
-                soft_update_xi_bar=self.soft_update_xi_bar,
-                V_loss=self.V_loss,
-                Q_loss=self.Q_loss,
-                pi_loss=self.pi_loss,
-                V_grad=self.V_grad,
-                Q_grad=self.Q_grad,
-                pi_grad=self.pi_grad,
-                train_V=self.train_V,
-                train_Q=self.train_Q,
-                train_pi=self.train_pi,
-            ), feed_dict)
+        fetch = {k:v for k, v in vars(self).items() if isinstance(v, tf.Tensor)}
+        return self.sess.run(fetch, feed_dict)
 
     def get_actions(self, o: ArrayLike, sample: bool = True) -> tf.Tensor:
         A = self.A_sampled1 if sample else self.A_max_likelihood

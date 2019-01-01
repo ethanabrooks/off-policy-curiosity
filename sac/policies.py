@@ -16,6 +16,8 @@ class GaussianPolicy(AbstractAgent):
         self.network_args = network_args
         args = self.network_args.copy()
         args.update(n_hidden=args['n_hidden'] + 1)
+        args.update(kernel_initializer=tf.constant_initializer(1.),
+                bias_initializer=tf.constant_initializer(0.))
         self.pi_network = make_network(o_size, 2 * a_size, **args)
         super().__init__(
             network_args=network_args, o_size=o_size, a_size=a_size, **kwargs)

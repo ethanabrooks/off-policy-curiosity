@@ -3,6 +3,7 @@ from collections import Counter, deque, namedtuple
 import itertools
 from pathlib import Path
 import time
+import pickle
 from typing import Optional, Tuple
 
 # third party
@@ -75,6 +76,7 @@ class Trainer:
         self.increment_global_step = tf.assign_add(self.global_step,
                                                    self.episode_time_step)
         self.sess.run(self.global_step.initializer)
+        self.fetches = []
 
     def train(self,
               load_path: Path,
@@ -187,10 +189,14 @@ class Trainer:
         counter = Counter()
         if self.buffer_ready():
             for i in range(self.n_train_steps):
+                train_step = self.train_step()
+                self.fetches.append(train_step)
+                with Path('/tmp/fetches').open('wb') as f:
+                    pickle.dump(self.fetches, f)
                 counter.update(
                     Counter({
                         k.replace(' ', '_'): v
-                        for k, v in self.train_step().items() if np.isscalar(v)
+                        for k, v in train_step.items() if np.isscalar(v)
                     }))
         return counter
 
