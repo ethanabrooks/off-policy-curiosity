@@ -14,7 +14,7 @@ setup(name='soft-actor-critic',
       author_email='cgrimm1994@gmail.com',
       packages=['sac'],
       install_requires=[
-          'tensorflow==1.6.0',
+          'tensorflow==1.7.1',
           'gym==0.10.4',
           'pygame==1.9.3',
           ])
